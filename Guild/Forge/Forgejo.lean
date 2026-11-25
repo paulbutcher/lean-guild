@@ -9,6 +9,9 @@ public import Json
 public import Leancurl
 import JsonDeriving
 public import Leancrypto.Codec.Base64
+public import Leancrypto.Codec.Hex
+public import Leancrypto.Hmac
+public import Leancrypto.Compare
 
 /-! The Forgejo adapter, over its HTTP API. -/
 
@@ -189,6 +192,10 @@ structure RawPullCommit where
 
 structure RawFile where
   filename : String
+  deriving FromJson
+
+structure RawUrl where
+  html_url : String
   deriving FromJson
 
 structure RawError where
@@ -522,7 +529,8 @@ def connect (c : Conn) : Forge where
   createRelease repo r := do
     let body := Json.mkObj [("tag_name", r.tag), ("target_commitish", r.target), ("name", r.name),
       ("body", r.body)]
-    discard <| write c .post (repoPath c repo ++ "/releases") body [201]
+    let r ← decode RawUrl (← json (← write c .post (repoPath c repo ++ "/releases") body [201]))
+    return r.html_url
   commit repo k := do
     let ref := k.start.getD k.branch
     let files ← k.files.mapM fun (path, text) => do
@@ -537,5 +545,45 @@ def connect (c : Conn) : Forge where
     let body := Json.mkObj (target ++ [("message", toJson k.message), ("files", toJson files)])
     let r ← decode RawCommitted (← json (← write c .post (repoPath c repo ++ "/contents") body [201]))
     return r.commit.sha
+
+/-! ## Webhooks -/
+
+/-- Whether a webhook's `X-Forgejo-Signature`, the hex HMAC-SHA256 of its body under the hook's
+secret, is right. An empty secret accepts nothing. -/
+def signed (secret : String) (body : ByteArray) (signature : String) : Bool :=
+  !secret.isEmpty &&
+    Leancrypto.bytesEqual
+      (Leancrypto.Codec.Hex.encodeString (Leancrypto.hmac .sha256 secret.toUTF8 body)).toUTF8
+      signature.toLower.toUTF8
+
+def field (j : Json) (path : List String) : Option Json :=
+  path.foldlM (fun j k => (j.getObjVal? k).toOption) j
+
+def text? (j : Json) (path : List String) : Option String :=
+  (field j path).bind fun v => v.getStr?.toOption
+
+def nat? (j : Json) (path : List String) : Option Nat :=
+  (field j path).bind fun v => v.getNat?.toOption
+
+/-- A webhook, from its kind (`X-Forgejo-Event-Type`, or `X-Forgejo-Event` without it) and its
+payload. `none` when it names no repository. -/
+def hook (kind : String) (payload : Json) : Option Hook := do
+  -- An Actions run carries its repository inside the run.
+  let repoJson ← (field payload ["repository"]).orElse fun _ => field payload ["run", "repository"]
+  let repo ← text? repoJson ["name"]
+  let owner := (text? repoJson ["owner", "login"]).getD ""
+  let action := (text? payload ["action"]).getD ""
+  let event : HookEvent :=
+    if kind.startsWith "action_run" then
+      -- The run's event payload is a JSON string of its own.
+      let inner := (text? payload ["run", "event_payload"]).bind fun s => (parse s).toOption
+      .runFinished (inner.bind fun j => nat? j ["pull_request", "number"])
+    else match kind, nat? payload ["pull_request", "number"] with
+      | "pull_request_sync", some n => .pullPushed n
+      | "pull_request", some n =>
+        if action == "opened" || action == "reopened" then .pullOpened n else .other kind action
+      | "push", _ => .push ((text? payload ["ref"]).getD "")
+      | _, _ => .other kind action
+  return { owner, repo, event }
 
 end Guild.Forge.Forgejo

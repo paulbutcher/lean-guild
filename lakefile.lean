@@ -51,3 +51,7 @@ script tests do
   let child ← IO.Process.spawn
     { cmd := "lake", args := #["test"], cwd := __dir__ / "test" }
   child.wait
+
+/-- The gatekeeper: approvals on CI, and releases at level 3. -/
+lean_exe «guild-gatekeeper» where
+  root := `Guild.Gatekeeper.Main

@@ -224,6 +224,25 @@ structure NewPull where
   title : String
   body : String := ""
 
+/-- What a webhook says happened, as far as the kit acts on it. -/
+inductive HookEvent where
+  /-- A CI run finished: for a pull request's head, or for a push. -/
+  | runFinished (pull : Option Nat)
+  | pullOpened (n : Nat)
+  /-- A pull request's head moved. -/
+  | pullPushed (n : Nat)
+  | push (ref : String)
+  /-- Anything else, by the forge's names for its kind and action. -/
+  | other (kind action : String)
+  deriving Repr, BEq
+
+structure Hook where
+  /-- The organisation or account the repository belongs to. -/
+  owner : String
+  repo : Repo
+  event : HookEvent
+  deriving Repr, BEq
+
 structure NewRelease where
   tag : String
   target : String
@@ -280,7 +299,8 @@ structure Forge where
   merge : Repo → Nat → (schedule : Bool) → M MergeResult
   cancelMerge : Repo → Nat → M Unit
   rerun : Repo → (run : Nat) → M Unit
-  createRelease : Repo → NewRelease → M Unit
+  /-- The release's web page. -/
+  createRelease : Repo → NewRelease → M String
   /-- The new commit's sha. -/
   commit : Repo → NewCommit → M String
 

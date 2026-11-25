@@ -2,10 +2,13 @@
 Copyright (c) 2026 Paul Butcher. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
+module
 
 /-! The next release's version, from the lines of `API.lock` removed and added since the last
 release: the gatekeeper's rule, which the release states use to tell a CHANGELOG.md heading the
 gatekeeper would refuse. Before 1.0, a change to the API is a minor bump. -/
+
+@[expose] public section
 
 namespace Guild.Version
 

@@ -15,3 +15,4 @@ import GuildTests.Interface
 import GuildTests.Axioms
 import GuildTests.Contract
 import GuildTests.Forge
+import GuildTests.Gatekeeper

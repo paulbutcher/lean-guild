@@ -14,3 +14,4 @@ services:
     volumes:
       - ./test/fixtures:/etc/kit-fixtures:ro
       - ./test/stages/checks.sh:/usr/local/lib/kit/checks.sh:ro
+      - ./test/stages/gate.sh:/usr/local/lib/kit/gate.sh:ro

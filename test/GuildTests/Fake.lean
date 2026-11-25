@@ -348,6 +348,7 @@ def as (ref : IO.Ref World) (who : String) : Forge where
     let sha := ((branchSha r k.target).getD k.target)
     setRepo { r with releases := { tag := k.tag, draft := false, publishedAt := some time } :: r.releases,
                      tags := if r.tags.any (·.name == k.tag) then r.tags else { name := k.tag, sha } :: r.tags }
+    return s!"https://forge.invalid/{repo}/releases/tag/{k.tag}"
   commit repo k := run ref do
     let r ← repoOf repo
     unless ← canWrite who r do fail 403 "you may not push"

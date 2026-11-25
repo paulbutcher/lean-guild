@@ -12,14 +12,16 @@ mkdir -p "$STATE_DIR/secrets/ci" "$STATE_DIR/secrets/dispatcher" "$STATE_DIR/sec
 # Extra domains for Forgejo's proxy: empty except while an import runs.
 [ -e "$STATE_DIR/proxy/domains.txt" ] || : > "$STATE_DIR/proxy/domains.txt"
 
-# The images up to the project's top layer.
-images="agent-base agent-lean ci-lean"
+# The images up to the project's top layer, and the kit's services.
+images="agent-base agent-lean ci-lean kit-build"
 [ "$TOP_LAYER" = lasm ] && images="$images agent-lasm ci-lasm"
 docker compose --profile build build $images
+# After kit-build, whose image it copies from.
+docker compose build gatekeeper
 docker compose --profile tools build tools
 docker tag "$COMPOSE_PROJECT_NAME-ci-$TOP_LAYER:1" "$CI_IMAGE"
 tools init-secrets
-docker compose up -d --remove-orphans forgejo ports proxy ci-proxy forge-proxy sink ci-docker
+docker compose up -d --remove-orphans forgejo ports proxy ci-proxy forge-proxy sink ci-docker gatekeeper
 
 printf 'Waiting for Forgejo'
 i=0

@@ -13,11 +13,12 @@ A project builds a kit executable from its configuration and text (`def main := 
 - `COMPOSE_PROJECT_NAME` and `STATE_DIR` name the deployment and hold its secrets, control files and exported configuration; a relative `STATE_DIR` is relative to the settings file.
 - `CI_IMAGE` and `TOOLCHAIN_VOLUME` name what CI jobs run in and the toolchains they share.
 - `MIRRORS=off` makes a deployment that creates, changes and syncs no push mirror, whatever the configuration says; `MIRROR_BASE` replaces `https://github.com` as where mirrors go.
+- `GATEKEEPER_SWEEP_SECONDS` (900) is how often the gatekeeper looks at every open pull request, in case it missed a webhook.
 
 ## Scripts
 
-- `scripts/up.sh` builds the images up to the configuration's top layer (Lasm if it has it, else Lean) and starts the kit; `scripts/down.sh` stops it.
+- `scripts/up.sh` builds the images up to the configuration's top layer (Lasm if it has it, else Lean) and the kit's own executables, and starts the kit; `scripts/down.sh` stops it.
 - `scripts/bootstrap.sh` makes the human's account, then everything the configuration names: repositories, agents, teams, webhooks, labels and mirrors. It is idempotent; its last line is the number of changes made.
 - `scripts/setup-repo.sh [REPOSITORY LEVEL]` applies an autonomy level, or each repository's starting level; run it after a repository's first push, since it protects `main`. It exits 3 when it has opened a pull request with files the level needs.
 - `scripts/mirrors.sh [--rotate | --status]` converges push mirrors, rotates their token from `secrets/github/mirror-token`, or shows their last sync.
-- `test/stages/stage3.sh` deploys the test projects in the dev container's engine and checks the networks, CI, permissions and mirrors; `test/stages/stage4.sh` runs the forge contract tests against a fresh deployment, as `lake test` runs them against the fake.
+- `test/stages/stage3.sh` deploys the test projects in the dev container's engine and checks the networks, CI, permissions and mirrors; `test/stages/stage4.sh` runs the forge contract tests against a fresh deployment, as `lake test` runs them against the fake; `test/stages/stage5.sh` runs the gatekeeper through the reference's level 2 checks and a release.

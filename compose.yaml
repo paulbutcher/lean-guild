@@ -9,6 +9,7 @@
 #   forge-out  internal: Forgejo and its proxy, its only way out (mirror pushes)
 #   forge-web  internal: Forgejo, the port forwarder and the admin tools
 #   gate       internal: Forgejo and the gatekeeper, which no agent joins
+#   gate-coord internal: the gatekeeper and the coordinator, which asks it for releases
 #   publish    the port forwarder only, so the host can reach Forgejo on 127.0.0.1
 #   egress     the three proxies, the only containers with a route out
 # Forgejo is on internal networks only: whatever it sends out goes through
@@ -159,16 +160,45 @@ services:
       - ci-certs:/certs/client:ro
       - ci-runner-data:/data
 
-  # Stands in for the dispatcher and the gatekeeper until they exist: Forgejo's webhooks
-  # reach it under both names, and it records them.
+  # Approves pull requests on CI at autonomy levels 2 and 3, and releases at level 3 when the
+  # coordinator asks. It shares a network with Forgejo, and another with the coordinator only;
+  # its token is mounted nowhere else. It waits for its token, which bootstrap makes.
+  gatekeeper:
+    build:
+      context: ./docker/gatekeeper
+      additional_contexts: { build: "docker-image://${COMPOSE_PROJECT_NAME:-guild}-kit-build:1" }
+    image: ${COMPOSE_PROJECT_NAME:-guild}-gatekeeper:1
+    restart: unless-stopped
+    oom_score_adj: -500
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    networks: [gate, gate-coord]
+    depends_on: [forgejo]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      FORGE_URL: http://forgejo:3000
+      FORGE_ORG: ${FORGE_ORG:?set FORGE_ORG}
+      COORDINATOR: ${COORDINATOR:?the project's configuration names no coordinator}
+      GATEKEEPER_SWEEP_SECONDS: ${GATEKEEPER_SWEEP_SECONDS:-900}
+    volumes:
+      - ${STATE_DIR:-.}/secrets/gatekeeper:/run/secrets/gatekeeper:ro
+      - ${STATE_DIR:-.}/control:/control:ro
+
+  # Stands in for the dispatcher until it exists: Forgejo's webhooks reach it, and it records
+  # them.
   sink:
     build: ./docker/sink
     restart: unless-stopped
     networks:
       agents: { aliases: [dispatcher] }
-      gate: { aliases: [gatekeeper] }
     volumes:
       - sink-state:/state
+
+  # The kit's executables, built once for the images that run them.
+  kit-build:
+    build: { context: ., dockerfile: docker/build/Dockerfile }
+    image: ${COMPOSE_PROJECT_NAME:-guild}-kit-build:1
+    profiles: [build]
 
   # The images, built in stages: the kit's base, the Lean layer on it, the Lasm layer on
   # that. The scripts build up to the project's top layer.
@@ -245,6 +275,8 @@ networks:
   forge-web:
     internal: true
   gate:
+    internal: true
+  gate-coord:
     internal: true
   publish: {}
   egress: {}
