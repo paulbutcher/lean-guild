@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.6.0
+
+- The dispatcher is in Lean, `guild-dispatcher`, with the reference's ledger, so a project can switch between the reference's kit and the guild and back.
+- Obligations wake with the patience fix and the run budget, and CI that fails again with its re-runs spent notifies the human.
+- An agent stops taking work while `control/stopped-<agent>` exists.
+- The kit generates each agent's service from the configuration, and `scripts/up.sh` starts the agents once they have a Claude token.
+- The export adds `config.json`, rewrites only the files that changed so running containers keep them, and `Config` has JSON codecs.
+- `Forge.Pull` gains `createdAt` and `mergedAt`, and the Forgejo adapter reads an empty repository's pull requests as none.
+- Agents run as the host user, so they can write their workspaces.
+
 ## v0.5.0
 
 - The agents' tools are in Lean: `guild-hook` guards the human's sessions and brakes runs while paused, `forge` does what `tea` can't, and `guild-runner` runs and reports each run.
