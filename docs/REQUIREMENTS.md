@@ -29,9 +29,9 @@ The guild is a kit that runs a team of Claude Code agents on a Lean project thro
 ## The project interface
 
 - A consuming project is a Lake package that requires `guild` at a release tag and builds the kit's executables with its configuration.
-- Static configuration is Lean values of the guild's types, checked when the project compiles: agents and their kinds, repositories (an explicit list, not a prefix), dependencies between them, reviewers, upstream projects and the agents that track them, autonomy levels, bounds, layers, and the forge mode, with the GitHub owner, its former owners and the mirrors' branch filter where it mirrors. A reviewer that names no agent, or a dependency on an unlisted repository, is a compile error.
+- Static configuration is Lean values of the guild's types, checked when the project compiles: agents and their kinds, repositories (an explicit list, not a prefix, naming the coordination repository), dependencies between them, reviewers, upstream projects and the agents that track them, autonomy levels, bounds, layers, and the forge mode, with the GitHub owner, its former owners and the mirrors' branch filter where it mirrors. A reviewer that names no agent, or a dependency on an unlisted repository, is a compile error.
 - Deployment settings and secrets (ports, paths, tokens, the human's account) are read from the environment at run time, never compiled in.
-- Text the project supplies (roles, protocol sections, `REQUIREMENTS.md`, `PRIOR-ART.md`) stays as files. A module that embeds one with `include_str` declares it as a Lake `input_file` with `text := true` and lists it in the library's `needs`, or edits to it rebuild nothing.
+- Text the project supplies (roles, protocol sections) stays as files; its `REQUIREMENTS.md` and `PRIOR-ART.md` stay in the coordination repository, where the coordinator maintains them under review. A module that embeds one with `include_str` declares it as a Lake `input_file` with `text := true` and lists it in the library's `needs`, or edits to it rebuild nothing.
 - The reference's rules that name agents become configuration (`generic-specific-split.md`, seam 4), and its repository contract becomes explicit (seam 13).
 
 ## States and the scheduler
@@ -46,14 +46,16 @@ The guild is a kit that runs a team of Claude Code agents on a Lean project thro
 
 - The dispatcher serves a minimal web UI built on the stack of [lean-todomvc-max](https://github.com/paulbutcher/lean-todomvc-max): `Std.Http.Server`, HTMX, lean-html, lean-htmx, lean-css, lean-routing, lean-middleware and lean-json.
 - Pages: the kit (its state, what waits on the human, CI, pause, drain and resume); agents (state, queued and owed work, runs and spend, stop a run, stop or start an agent); notices (an inbox, mark seen, browser notifications while open); activity; reviews. Each page also serves its data as JSON, for tests.
-- It reads nothing from the forge. Decisions stay in the forge as issues, and the UI links to them. Pause, drain and a stopped agent are control state the dispatcher and gatekeeper read, as the reference's `control/` files are; the UI's actions set it, and never touch Docker.
+- It reads nothing from the forge. Decisions stay in the forge as issues, and the UI links to them. Pause, drain and a stopped agent are control state the dispatcher and gatekeeper read, in `control/` ("The ledger and the switch"); the UI's actions set it, and never touch Docker.
 - It listens on its own port, published only on the host's loopback, on a network agents aren't on. Every request needs a session signed in with a secret agents never see, and every action an anti-forgery token. Prove that no route that changes anything is reachable without both.
 - It replaces the reference's `status.sh`, `watch.sh`, `stop-run.sh`, `pause.sh`, `resume.sh`, `drain.sh`, `notify.sh` and its launchd job, `activity.sh` and `reviews.sh`; the optional SMTP that DESIGN.md mentions is not built. Setting up and running the kit stays on the command line: bootstrap, repositories and new libraries, secrets, up and down, images, backups and restores, the human's own releases and milestones, kit commands in the dev container, and opening an agent's container or a Remote Control session with it.
 
-## The ledger
+## The ledger and the switch
 
-- SQLite through leansqlite.
-- The guild opens a ledger written by the reference's dispatcher, and the reference's dispatcher opens one the guild has written, so a consumer can switch to the guild and back. Changes to the schema are additive only. The test of this runs the reference's dispatcher image unchanged, the one place the guild's tests run Python.
+- The ledger is SQLite through leansqlite.
+- A project running the reference switches to the guild on the same data, and can switch back. So the guild uses, as the reference does: the ledger, whose schema changes are additive only; the volumes, through a compose project name that is a deployment setting defaulting to the kit's own; and `STATE_DIR`, a deployment setting, with the reference's layout of `secrets/`, `control/` and `backups/` under it. Additions are allowed; renames and moves are not.
+- In `control/`, `paused`, `draining` and `paused-merges.json` keep the reference's meaning, so either kit sees the other's brake and resumes its cancelled merges. A stopped agent is a new file there, which the reference ignores.
+- The test of the switch runs the reference's kit unchanged, the one place the guild's tests run Python.
 
 ## The forge
 
