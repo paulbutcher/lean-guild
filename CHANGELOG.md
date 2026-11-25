@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.3.0
+
+- Everything the kit does through a forge goes through a `Guild.Forge.Forge` per account, with a Forgejo adapter, and CI re-runs of a commit are counted from the forge.
+- Contract tests hold a fake forge to what a real Forgejo does: paging, dropped labels, `updated_at`, requested reviewers, scheduled merges and re-runs.
+
 ## v0.2.0
 
 - The kit deploys a project: staged images, Forgejo, proxies with joined allowlists, CI in its own engine, bootstrap and repository setup, and push mirrors that a deployment can turn off with `MIRRORS=off`.
