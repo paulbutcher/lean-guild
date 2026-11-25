@@ -170,6 +170,9 @@ def composeAgents (c : Config) : String :=
 x-agent: &agent
   image: $\{COMPOSE_PROJECT_NAME:-guild}-agent-$\{TOP_LAYER:-lean}:1
   init: true
+  # The image's agent user, whose IDs are the host user's: with every capability dropped, root
+  # couldn't write the agent's own files.
+  user: \"$\{HOST_UID:-1000}:$\{HOST_GID:-1000}\"
   restart: unless-stopped
   networks: [agents]
   depends_on:
@@ -299,11 +302,17 @@ def exportTo (p : Project) (s : Settings) (text : Protocol.Text) (dir : System.F
   match files p s text with
   | .error e => IO.eprintln s!"kit: {e}"; return 1
   | .ok fs =>
-    if (← dir.pathExists) then IO.FS.removeDirAll dir
+    -- Running containers bind-mount these files, and every script exports again: a file
+    -- replaced rather than rewritten in place would vanish from under them.
+    let paths := fs.map fun (path, _) => dir / path
+    if ← dir.pathExists then
+      for f in ← dir.walkDir do
+        if !(← f.isDir) && !paths.contains f then IO.FS.removeFile f
     for (path, body) in fs do
       let f := dir / path
       if let some d := f.parent then IO.FS.createDirAll d
-      IO.FS.writeFile f body
+      let same ← if ← f.pathExists then pure ((← IO.FS.readFile f) == body) else pure false
+      unless same do IO.FS.writeFile f body
     return 0
 
 /-- The kit's command line, for a project's `main`. -/

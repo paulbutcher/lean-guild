@@ -1,2 +1,4 @@
 /.lake
 /test/.lake
+# A Claude token for test/stages/runs.sh.
+/token

@@ -55,9 +55,9 @@ def Hold.state {N} [HoldNames N] : Hold → Option (State N)
   | .waiting => some { name := HoldNames.waiting, holders := [.waited],
                        step := "answer, or do what it waits for" }
   | .invalid => some { name := HoldNames.invalid, holders := [.writer],
-                       step := "a Blocked-by: line names this item itself, or closes a loop of                          waits: fix it" }
+                       step := "a Blocked-by: line names this item itself, or closes a loop of waits: fix it" }
   | .blocked => some { name := HoldNames.blocked, holders := [.blockers] }
   | .bareLabel => some { name := HoldNames.blockedWithoutReason, holders := [.owner],
-                         step := "it is labelled blocked, but no Blocked-by: line names what it                            waits for: add one, or take the label off" }
+                         step := "it is labelled blocked, but no Blocked-by: line names what it waits for: add one, or take the label off" }
 
 end Guild

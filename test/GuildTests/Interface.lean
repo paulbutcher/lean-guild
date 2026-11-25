@@ -106,12 +106,31 @@ def plainTextUnchanged (s : String) : Bool :=
   | .ok (out, _) => out == s
   | .error _ => false
 
+/-- Exporting into an earlier export leaves its unchanged files alone, which containers have
+mounted, and removes what it no longer writes. -/
+def exportsAgain : IO Bool := do
+  let dir := (← IO.currentDir) / ".lake" / "export-test" / toString (← IO.monoNanosNow)
+  let s : Settings := { settings with forgeWebUrl := "http://localhost:3000" }
+  unless (← Kit.exportTo plain s plainText dir) == 0 do return false
+  let kept := dir / "gitconfig"
+  let before := (← kept.metadata).modified
+  IO.FS.writeFile (dir / "stale.txt") "left by an earlier configuration"
+  IO.sleep 20
+  unless (← Kit.exportTo plain s plainText dir) == 0 do return false
+  let unchanged := (← kept.metadata).modified == before
+  let removed := !(← (dir / "stale.txt").pathExists)
+  IO.FS.removeDirAll dir
+  return unchanged && removed
+
 def check : IO Bool := do
   let mut ok := true
   for (name, passed) in cases do
     unless passed do
       IO.eprintln s!"Interface: {name}"
       ok := false
+  unless ← exportsAgain do
+    IO.eprintln "Interface: an export again rewrote an unchanged file, or kept a stale one"
+    ok := false
   let r ← Fuel.checkIO (∀ s, plainTextUnchanged s = true) { numInst := 500 }
   match r with
   | .success _ => pure ok
