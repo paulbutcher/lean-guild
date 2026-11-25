@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.0
+
+- The gatekeeper approves pull requests on CI at levels 2 and 3 and releases at level 3, in Lean, reading the pause from `control/`.
+- Webhooks are parsed and their signatures checked by the forge adapter, and `createRelease` returns the release's web address.
+- `GATEKEEPER_SWEEP_SECONDS` sets how often the gatekeeper looks at every open pull request.
+
 ## v0.3.0
 
 - Everything the kit does through a forge goes through a `Guild.Forge.Forge` per account, with a Forgejo adapter, and CI re-runs of a commit are counted from the forge.
