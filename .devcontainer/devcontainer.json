@@ -1,6 +1,15 @@
+// Copyright (c) 2026 Paul Butcher. All rights reserved.
+// Released under Apache 2.0 license as described in the file LICENSE.
 {
 	"name": "Ubuntu",
 	"build": { "dockerfile": "Dockerfile" },
+
+  // A Docker engine of this container's own, for building and testing the kit, separate from the
+  // host's, which runs a production kit. Moby has no packages for Ubuntu resolute, so this installs
+  // Docker CE from Docker's own repository.
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": { "moby": false }
+  },
 
   // Store Claude's persistent state on the host
   "mounts": [

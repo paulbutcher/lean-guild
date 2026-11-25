@@ -1,6 +1,0 @@
-name = "guild"
-version = "0.1.0"
-defaultTargets = ["Guild"]
-
-[[lean_lib]]
-name = "Guild"

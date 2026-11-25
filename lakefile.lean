@@ -1,0 +1,29 @@
+/-
+Copyright (c) 2026 Paul Butcher. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+-/
+import Lake
+open Lake DSL
+
+package guild where
+  leanOptions := #[⟨`warningAsError, true⟩]
+
+require leancurl from git "https://github.com/paulbutcher/leancurl" @ "v0.4.0"
+require leansqlite from git "https://github.com/leanprover/leansqlite" @ "v4.36.0"
+require json from git "https://github.com/paulbutcher/lean-json" @ "v0.4.0"
+require html from git "https://github.com/paulbutcher/lean-html" @ "v0.15.3"
+require htmx from git "https://github.com/paulbutcher/lean-htmx" @ "v0.9.3"
+require css from git "https://github.com/paulbutcher/lean-css" @ "v0.3.0"
+require routing from git "https://github.com/paulbutcher/lean-routing" @ "v0.16.0"
+require «routing-std» from git "https://github.com/paulbutcher/lean-routing" @ "v0.16.0" / "std"
+require middleware from git "https://github.com/paulbutcher/lean-middleware" @ "v0.22.1"
+require «middleware-cookiestore» from git "https://github.com/paulbutcher/lean-middleware" @ "v0.22.1" / "cookiestore"
+
+@[default_target]
+lean_lib Guild
+
+@[test_driver]
+script tests do
+  let child ← IO.Process.spawn
+    { cmd := "lake", args := #["test"], cwd := __dir__ / "test" }
+  child.wait
