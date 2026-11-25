@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.5.0
+
+- The agents' tools are in Lean: `guild-hook` guards the human's sessions and brakes runs while paused, `forge` does what `tea` can't, and `guild-runner` runs and reports each run.
+- `forge ci --rerun` refuses past the configured re-run limit, counted from the forge, and `forge ci` says how many times the head was re-run.
+- The guard treats a newline as a command separator, as bash does, which the reference did not.
+- The kit's export adds the agents' git rules (`gitconfig`) and the settings `forge` and the runner read.
+
 ## v0.4.0
 
 - The gatekeeper approves pull requests on CI at levels 2 and 3 and releases at level 3, in Lean, reading the pause from `control/`.
