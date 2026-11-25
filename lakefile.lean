@@ -12,6 +12,8 @@ package guild where
 require leancurl from git "https://github.com/paulbutcher/leancurl" @ "v0.4.0"
 require leansqlite from git "https://github.com/leanprover/leansqlite" @ "v4.36.0"
 require json from git "https://github.com/paulbutcher/lean-json" @ "v0.4.0"
+require jsonDeriving from git "https://github.com/paulbutcher/lean-json" @ "v0.4.0" / "deriving"
+require leancrypto from git "https://github.com/paulbutcher/leancrypto" @ "v0.5.0"
 require html from git "https://github.com/paulbutcher/lean-html" @ "v0.15.3"
 require htmx from git "https://github.com/paulbutcher/lean-htmx" @ "v0.9.3"
 require css from git "https://github.com/paulbutcher/lean-css" @ "v0.3.0"

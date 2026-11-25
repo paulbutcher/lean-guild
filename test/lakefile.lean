@@ -24,3 +24,7 @@ lean_exe «kit-plain» where
 
 lean_exe «kit-browser» where
   root := `KitBrowser
+
+/-- The contract tests, against a real Forgejo. -/
+lean_exe contract where
+  root := `ContractMain

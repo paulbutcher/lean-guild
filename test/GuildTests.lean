@@ -13,3 +13,5 @@ import GuildTests.Fuel
 import GuildTests.Projects
 import GuildTests.Interface
 import GuildTests.Axioms
+import GuildTests.Contract
+import GuildTests.Forge

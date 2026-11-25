@@ -30,3 +30,5 @@ import Routing
 import RoutingStd
 import Middleware
 import MiddlewareCookieStore
+import Guild.Forge
+import Guild.Forge.Forgejo
