@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.1.0
 
 - A pull request whose mergeability the forge hasn't worked out by its deadline is `check stuck`, held by its author, where the reference waited on the forge indefinitely.
 - A `Blocked-by:` line is invalid when it closes a loop through any waits between units, such as an issue waiting on a pull request that is blocked by the issue, not only a loop of `Blocked-by:` lines.
