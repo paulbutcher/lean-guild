@@ -48,18 +48,18 @@ The guild is a kit that runs a team of Claude Code agents on a Lean project thro
 - Pages: the kit (its state, what waits on the human, CI, pause, drain and resume); agents (state, queued and owed work, runs and spend, stop a run, stop or start an agent); notices (an inbox, mark seen, browser notifications while open); activity; reviews. Each page also serves its data as JSON, for tests.
 - It reads nothing from the forge. Decisions stay in the forge as issues, and the UI links to them. Pause, drain and a stopped agent are control state the dispatcher and gatekeeper read, as the reference's `control/` files are; the UI's actions set it, and never touch Docker.
 - It listens on its own port, published only on the host's loopback, on a network agents aren't on. Every request needs a session signed in with a secret agents never see, and every action an anti-forgery token. Prove that no route that changes anything is reachable without both.
-- It replaces the reference's `status.sh`, `watch.sh`, `stop-run.sh`, `pause.sh`, `resume.sh`, `drain.sh`, `notify.sh`, `activity.sh` and `reviews.sh`. Setting up and running the kit (bootstrap, repositories, secrets, up and down, images, backups, opening an agent's container) stays on the command line.
+- It replaces the reference's `status.sh`, `watch.sh`, `stop-run.sh`, `pause.sh`, `resume.sh`, `drain.sh`, `notify.sh` and its launchd job, `activity.sh` and `reviews.sh`; the optional SMTP that DESIGN.md mentions is not built. Setting up and running the kit stays on the command line: bootstrap, repositories and new libraries, secrets, up and down, images, backups and restores, the human's own releases and milestones, kit commands in the dev container, and opening an agent's container or a Remote Control session with it.
 
 ## The ledger
 
 - SQLite through leansqlite.
-- The guild opens a ledger written by the reference's dispatcher, and the reference's dispatcher opens one the guild has written, so a consumer can switch to the guild and back. Changes to the schema are additive only.
+- The guild opens a ledger written by the reference's dispatcher, and the reference's dispatcher opens one the guild has written, so a consumer can switch to the guild and back. Changes to the schema are additive only. The test of this runs the reference's dispatcher image unchanged, the one place the guild's tests run Python.
 
 ## The forge
 
-- One adapter per forge, chosen by configuration, behind everything the kit does through a forge: API calls, the agents' `forge` command, identities, protection, CI and webhooks (`generic-specific-split.md`, seam 12). Forgejo first, with no change in behaviour; GitHub second.
+- One adapter per forge, chosen by configuration, behind everything the kit does through a forge: API calls (over leancurl), the agents' `forge` command, identities, protection, CI and webhooks (`generic-specific-split.md`, seam 12). Forgejo first, with no change in behaviour; GitHub second.
 - Load stays at or below the reference's after its fixes: webhooks rather than polling, an item cache validated by `updated_at`, CI flags marked by events, and a reconciliation sweep. The reference measured about 1,070 to 1,750 requests an hour.
-- Two GitHub modes: work on GitHub with no Forgejo, and import into Forgejo with a mirror to GitHub. On GitHub: GitHub Apps rather than machine users, one serial client per installation, conditional requests, and webhooks with a sweep (`github-forge-research.md`).
+- Two GitHub modes: work on GitHub with no Forgejo, and import into Forgejo with a mirror to GitHub (the reference's `migrate.sh` and `mirrors.sh`). On GitHub: GitHub Apps rather than machine users, one serial client per installation, conditional requests, and webhooks with a sweep (`github-forge-research.md`).
 - Adoption: an existing project whose repositories are all owned by one GitHub account can be adopted, and takes on the kit's conventions through onboarding pull requests. Moving it to an organisation is a last resort.
 - Outsiders may file issues only. Their pull requests are closed with a note asking for an issue, and no CI runs on them.
 
