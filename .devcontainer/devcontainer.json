@@ -8,6 +8,9 @@
     "source=elan-shared,target=/home/vscode/.elan,type=volume"
   ],
 
+  // The reference is cloned beside the workspace. /workspaces is mounted at run time, as root's, so a chown in the Dockerfile would be hidden.
+  "postCreateCommand": "sudo chown vscode:vscode /workspaces",
+
   "containerEnv": {
     "CLAUDE_CONFIG_DIR": "/home/vscode/.claude",
     "GIT_CONFIG_COUNT": "1",

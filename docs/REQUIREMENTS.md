@@ -53,7 +53,7 @@ The guild is a kit that runs a team of Claude Code agents on a Lean project thro
 ## The ledger and the switch
 
 - The ledger is SQLite through leansqlite.
-- A project running the reference switches to the guild on the same data, and can switch back. So the guild uses, as the reference does: the ledger, whose schema changes are additive only; the volumes, through a compose project name that is a deployment setting defaulting to the kit's own; and `STATE_DIR`, a deployment setting, with the reference's layout of `secrets/`, `control/` and `backups/` under it. Additions are allowed; renames and moves are not.
+- A project running the reference switches to the guild on the same data, and can switch back. So the guild keeps the reference's ledger, its volumes' names within a compose project name that is a deployment setting defaulting to the kit's own, and its layout of `secrets/`, `control/` and `backups/` under `STATE_DIR`, also a deployment setting. Each, the ledger's schema included, may gain additions, but nothing in it is renamed or moved.
 - In `control/`, `paused`, `draining` and `paused-merges.json` keep the reference's meaning, so either kit sees the other's brake and resumes its cancelled merges. A stopped agent is a new file there, which the reference ignores.
 - The test of the switch runs the reference's kit unchanged, the one place the guild's tests run Python.
 
