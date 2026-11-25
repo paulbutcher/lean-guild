@@ -46,7 +46,7 @@ The guild is a kit that runs a team of Claude Code agents on a Lean project thro
 
 - The dispatcher serves a minimal web UI built on the stack of [lean-todomvc-max](https://github.com/paulbutcher/lean-todomvc-max): `Std.Http.Server`, HTMX, lean-html, lean-htmx, lean-css, lean-routing, lean-middleware and lean-json.
 - Pages: the kit (its state, what waits on the human, CI, pause, drain and resume); agents (state, queued and owed work, runs and spend, stop a run, stop or start an agent); notices (an inbox, mark seen, browser notifications while open); activity; reviews. Each page also serves its data as JSON, for tests.
-- It reads nothing from the forge. Decisions stay in the forge as issues, and the UI links to them. Stopping an agent stops its work being given out, and never touches Docker.
+- It reads nothing from the forge. Decisions stay in the forge as issues, and the UI links to them. Pause, drain and a stopped agent are control state the dispatcher and gatekeeper read, as the reference's `control/` files are; the UI's actions set it, and never touch Docker.
 - It listens on its own port, published only on the host's loopback, on a network agents aren't on. Every request needs a session signed in with a secret agents never see, and every action an anti-forgery token. Prove that no route that changes anything is reachable without both.
 - It replaces the reference's `status.sh`, `watch.sh`, `stop-run.sh`, `pause.sh`, `resume.sh`, `drain.sh`, `notify.sh`, `activity.sh` and `reviews.sh`. Setting up and running the kit (bootstrap, repositories, secrets, up and down, images, backups, opening an agent's container) stays on the command line.
 
@@ -75,4 +75,5 @@ The guild is a kit that runs a team of Claude Code agents on a Lean project thro
 - `lake build` and `lake test` pass with no warnings, no `sorry`, and theorems that depend only on Lean's standard axioms.
 - The reference's stage tests are ported, in shell, against the guild's own test projects: a plain Lean project, and a small one with Lasm. Stage 2, which imported Inkproof from GitHub, becomes the adoption tests.
 - Contract tests against a real Forgejo in the dev container keep the fake forge honest: scheduled merges, dropped labels, paging, requested reviewers, `updated_at`, and run attempt counts.
+- A stage test that makes real Claude runs uses a setup token for an account the human provides, read from the environment like any secret. It asks before it starts and says what it expects to spend, as the reference's do.
 - A randomised world test, with Plausible, draws worlds from the forge's data model, runs the real fact-reading code with simulated agents, and asserts that the kit never goes quiet with an open item nobody owes and the human hasn't been told about.
