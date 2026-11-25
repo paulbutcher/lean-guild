@@ -151,6 +151,10 @@ inductive RunStatus where
   | other (name : String)
   deriving Repr, BEq, DecidableEq
 
+def RunStatus.name : RunStatus → String
+  | .waiting => "waiting" | .running => "running" | .success => "success" | .failure => "failure"
+  | .cancelled => "cancelled" | .skipped => "skipped" | .blocked => "blocked" | .other s => s
+
 def RunStatus.finished : RunStatus → Bool
   | .success | .failure | .cancelled | .skipped | .blocked => true
   | _ => false

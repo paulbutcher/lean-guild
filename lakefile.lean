@@ -55,3 +55,15 @@ script tests do
 /-- The gatekeeper: approvals on CI, and releases at level 3. -/
 lean_exe «guild-gatekeeper» where
   root := `Guild.Gatekeeper.Main
+
+/-- Claude Code's hooks in an agent's container. -/
+lean_exe «guild-hook» where
+  root := `Guild.Agent.HookMain
+
+/-- The agents' `forge` command. -/
+lean_exe forge where
+  root := `Guild.Agent.ForgeMain
+
+/-- The agent runner, for the life of an agent's container. -/
+lean_exe «guild-runner» where
+  root := `Guild.Agent.RunnerMain

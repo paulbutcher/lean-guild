@@ -35,3 +35,9 @@ import Guild.Forge.Forgejo
 import Guild.Control
 import Guild.Gatekeeper
 import Guild.Gatekeeper.Service
+import Guild.Agent.Guard
+import Guild.Agent.Hook
+import Guild.Agent.Env
+import Guild.Agent.ForgeCli
+import Guild.Agent.Runner
+import Guild.Agent.RunnerIO

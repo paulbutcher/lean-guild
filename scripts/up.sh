@@ -13,10 +13,11 @@ mkdir -p "$STATE_DIR/secrets/ci" "$STATE_DIR/secrets/dispatcher" "$STATE_DIR/sec
 [ -e "$STATE_DIR/proxy/domains.txt" ] || : > "$STATE_DIR/proxy/domains.txt"
 
 # The images up to the project's top layer, and the kit's services.
-images="agent-base agent-lean ci-lean kit-build"
+# kit-build first: the agents' images and the gatekeeper's copy from it.
+docker compose --profile build build kit-build
+images="agent-base agent-lean ci-lean"
 [ "$TOP_LAYER" = lasm ] && images="$images agent-lasm ci-lasm"
 docker compose --profile build build $images
-# After kit-build, whose image it copies from.
 docker compose build gatekeeper
 docker compose --profile tools build tools
 docker tag "$COMPOSE_PROJECT_NAME-ci-$TOP_LAYER:1" "$CI_IMAGE"

@@ -148,7 +148,17 @@ def projectEnv (c : Config) (s : Settings) : String :=
      v "MIRROR_BRANCHES" ((mirror.map (",".intercalate ·.branches)).getD ""),
      v "COORDINATOR" ((c.coordinator?.map (·.name)).getD ""),
      v "REVIEWER" ((c.reviewer?.map (·.name)).getD ""),
+     v "SUPERVISOR" ((c.supervisor?.map (·.name)).getD ""),
+     v "RERUN_LIMIT" (toString c.bounds.rerunLimit), v "REVIEW_ROUNDS" (toString c.bounds.reviewRounds),
+     v "MAX_RUN_MINUTES" (toString c.bounds.maxRunMinutes),
      v "CI_IMAGE" s.ciImage, v "TOOLCHAIN_VOLUME" s.toolchainVolume] ++ "\n"
+
+/-- The agents' git rules: the project's repositories keep their GitHub URLs in lakefiles and manifests,
+under every owner they have had, and are fetched from the forge. -/
+def gitconfig (c : Config) (s : Settings) : String :=
+  String.join (c.repoNames.map fun r =>
+    s!"[url \"http://forgejo:3000/{s.forgeOrg}/{r}\"]\n" ++
+      String.join ((owners c).map fun o => s!"\tinsteadOf = https://github.com/{o}/{r}\n"))
 
 def tsv (rows : List (List String)) : String :=
   String.join (rows.map (fun r => "\t".intercalate r ++ "\n"))
@@ -176,6 +186,7 @@ def files (p : Project) (s : Settings) (text : Protocol.Text) : Except String (L
        [r.name, toString r.level, if r.name == c.coordination then "0" else "1",
         if isSite r.name then "1" else "0"]))),
      ("runner.yml", runner s),
+     ("gitconfig", gitconfig c s),
      ("templates/repo/.forgejo/workflows/checks.yml", ← checksYml c s),
      ("templates/repo/scripts/check-pins.sh", checkPins),
      ("templates/repo/.forgejo/issue_template/request.md", request),

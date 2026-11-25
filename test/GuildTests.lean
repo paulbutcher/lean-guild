@@ -16,3 +16,6 @@ import GuildTests.Axioms
 import GuildTests.Contract
 import GuildTests.Forge
 import GuildTests.Gatekeeper
+import GuildTests.Hook
+import GuildTests.Tools
+import GuildTests.Runner

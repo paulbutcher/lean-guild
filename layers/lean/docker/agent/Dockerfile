@@ -9,3 +9,7 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends python3 python3-pip \
  && rm -rf /var/lib/apt/lists/* \
  && pip install --no-cache-dir --break-system-packages "lean-lsp-mcp==${LEAN_LSP_MCP_VERSION}"
+
+COPY init.d/ /usr/local/lib/guild/init.d/
+RUN jq '.permissions.allow += ["mcp__lean-lsp"]' /etc/claude-code/managed-settings.json > /tmp/settings.json \
+ && mv /tmp/settings.json /etc/claude-code/managed-settings.json

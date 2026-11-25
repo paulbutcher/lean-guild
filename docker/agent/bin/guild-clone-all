@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Copyright (c) 2026 Paul Butcher. All rights reserved.
+# Released under Apache 2.0 license as described in the file LICENSE.
+
+# Clones each of the project's repositories (REPOSITORIES) that the agent hasn't cloned yet
+# into the shared workspace, as read-only background. Every agent reads every repository,
+# so a library added later is cloned before the agent's next run.
+#   guild-clone-all          at container start: waits for the forge
+#   guild-clone-all --quick  before a run: one attempt each, never fails the run
+set -uo pipefail
+attempts=30
+[ "${1:-}" = --quick ] && attempts=1
+shared="${SHARED_DIR:-/workspace}"
+forge="${FORGE_URL:-http://forgejo:3000}"
+for r in ${REPOSITORIES:-}; do
+  [ "$r" = "${AGENT_REPO:-}" ] && continue
+  [ -d "$shared/$r/.git" ] && continue
+  for i in $(seq 1 "$attempts"); do
+    if git clone -q "$forge/${FORGE_ORG}/$r.git" "$shared/$r" 2>/dev/null; then
+      echo "guild-clone-all: cloned $r"
+      break
+    fi
+    rm -rf "${shared:?}/$r"
+    [ "$i" = "$attempts" ] && { echo "guild-clone-all: cloning $r failed" >&2; break; }
+    sleep 10
+  done
+done
+exit 0

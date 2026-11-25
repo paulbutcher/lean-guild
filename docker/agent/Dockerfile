@@ -48,3 +48,18 @@ ENV PATH=/home/agent/.elan/bin:/usr/local/bin:/usr/bin:/bin \
     CLAUDE_CONFIG_DIR=/home/agent/.claude \
     DISABLE_AUTOUPDATER=1
 WORKDIR /workspace
+
+# The kit's own tools, built in the kit-build image.
+COPY --from=kit /out/libleancurl_shim.so /usr/local/lib/
+COPY --from=kit /out/forge /out/guild-hook /out/guild-runner /usr/local/bin/
+COPY bin/ /usr/local/bin/
+COPY managed-settings.json /etc/claude-code/managed-settings.json
+RUN /sbin/ldconfig \
+ && mkdir -p /usr/local/lib/guild/init.d /etc/guild \
+ && git config --system credential.http://forgejo:3000.helper "" \
+ && git config --system --add credential.http://forgejo:3000.helper /usr/local/bin/git-credential-forgejo \
+ && git config --system include.path /etc/guild/gitconfig \
+ && git config --system push.autoSetupRemote true \
+ && git config --system init.defaultBranch main \
+ && git config --system safe.directory '/workspace/*'
+ENTRYPOINT ["guild-init"]

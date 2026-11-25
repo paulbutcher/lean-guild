@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Copyright (c) 2026 Paul Butcher. All rights reserved.
+# Released under Apache 2.0 license as described in the file LICENSE.
+
+# The human's Remote Control session in this container, which the kit starts in tmux
+# (session `human`) so that it outlives the terminal: an interactive Claude session, named
+# after the agent, that the human drives from the Claude apps. Remote Control refuses the
+# setup token runs use, so this session uses a claude.ai login of its own, kept in the
+# agent's Claude volume, and asks for one first if there is none. It is one of the human's
+# sessions like any other: it consults, and the hook's guard applies. If Claude exits, it
+# starts again after a few seconds, so the agent stays reachable.
+set -uo pipefail
+unset CLAUDE_CODE_OAUTH_TOKEN
+cd "${AGENT_WORKSPACE:-${SHARED_DIR:-/workspace}/${AGENT_REPO:-}}" || exit 1
+
+if ! claude auth status >/dev/null 2>&1; then
+  echo "Log $AGENT_NAME in with the agents' Claude account (the one secrets/claude/oauth-token belongs to)."
+  echo "Your Remote Control sessions here use this login; runs keep using the setup token."
+  claude auth login --claudeai || { echo "Logging in failed."; sleep 30; exit 1; }
+fi
+
+while true; do
+  claude --remote-control "$AGENT_NAME"
+  code=$?
+  echo
+  echo "Claude exited (status $code). It starts again in 10 seconds: Ctrl-C to stop it, Ctrl-b d to detach."
+  sleep 10 || exit 0
+done

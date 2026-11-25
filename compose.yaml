@@ -206,6 +206,7 @@ services:
     build:
       context: ./docker/agent
       args: { USER_UID: "${HOST_UID:-1000}", USER_GID: "${HOST_GID:-1000}" }
+      additional_contexts: { kit: "docker-image://${COMPOSE_PROJECT_NAME:-guild}-kit-build:1" }
     image: ${COMPOSE_PROJECT_NAME:-guild}-agent-base:1
     profiles: [build]
   agent-lean:

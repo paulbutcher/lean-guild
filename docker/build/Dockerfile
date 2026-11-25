@@ -17,7 +17,8 @@ RUN curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-ini
     | sh -s -- -y --no-modify-path --default-toolchain "$(cat lean-toolchain)"
 RUN lake build Json JsonDeriving Leancurl Leancrypto RoutingStd
 COPY . .
-RUN lake build guild-gatekeeper \
+RUN lake build guild-gatekeeper forge guild-hook guild-runner \
  && mkdir -p /out \
- && cp .lake/build/bin/guild-gatekeeper /out/ \
+ && cp .lake/build/bin/guild-gatekeeper .lake/build/bin/forge .lake/build/bin/guild-hook \
+      .lake/build/bin/guild-runner /out/ \
  && cp "$(find .lake -name libleancurl_shim.so | head -1)" /out/

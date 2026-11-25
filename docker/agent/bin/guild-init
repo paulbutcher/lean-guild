@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# Copyright (c) 2026 Paul Butcher. All rights reserved.
+# Released under Apache 2.0 license as described in the file LICENSE.
+
+# The agent container's entry point. Prepares the workspace and Claude's configuration,
+# runs each layer's start-up in /usr/local/lib/guild/init.d, then runs guild-runner for the
+# life of the container.
+#   - clones the agent's own repository, retrying while the forge starts, and every other
+#     one of the project's repositories as read-only background (guild-clone-all, which the
+#     runner repeats before each run);
+#   - gives tea a login with the agent's token;
+#   - marks the workspace folders as trusted and onboarding as done, so no run or session
+#     meets a first-run prompt.
+set -uo pipefail
+shared="${SHARED_DIR:-/workspace}"
+state="$shared/${WORKSPACE_STATE:-.guild}"
+# An agent that owns no repository has a folder of its own.
+own="${AGENT_WORKSPACE:-$shared/${AGENT_REPO:-}}"
+forge="${FORGE_URL:-http://forgejo:3000}"
+mkdir -p "$state"
+
+clone() {
+  local repo="$1" dir="$2" i
+  [ -d "$dir/.git" ] && return 0
+  for i in $(seq 1 30); do
+    git clone -q "$forge/${FORGE_ORG}/${repo}.git" "$dir" && { echo "guild-init: cloned $repo"; return 0; }
+    echo "guild-init: cloning $repo failed (attempt $i); retrying in 10s" >&2
+    sleep 10
+  done
+  echo "guild-init: giving up on cloning $repo; check the token and the forge, then restart this container" >&2
+  return 1
+}
+if [ -n "${AGENT_REPO:-}" ]; then clone "$AGENT_REPO" "$own"; else mkdir -p "$own"; fi
+guild-clone-all
+
+# Run logs live in the workspace, never in git.
+exclude="/${WORKSPACE_STATE:-.guild}/"
+if [ -d "$own/.git" ] && ! grep -qx "$exclude" "$own/.git/info/exclude" 2>/dev/null; then
+  echo "$exclude" >> "$own/.git/info/exclude"
+fi
+
+# tea, logged in as the agent. `tea login` itself is denied to agents.
+umask 077
+cat > "$HOME/.config/tea/config.yml" <<TEA
+logins:
+  - name: forgejo
+    url: $forge
+    token: $(tr -d '[:space:]' < "${TOKEN_FILE:-/run/secrets/forgejo_token}")
+    default: true
+    user: ${AGENT_NAME}
+preferences:
+  editor: false
+TEA
+umask 022
+
+# Claude's configuration: trust the workspace folders and skip onboarding.
+cfg="${CLAUDE_CONFIG_DIR}/.claude.json"
+[ -s "$cfg" ] || echo '{}' > "$cfg"
+tmp="$(mktemp)"
+jq --arg own "$own" --arg ws "$shared" '
+  .hasCompletedOnboarding = true
+  | .projects[$own].hasTrustDialogAccepted = true
+  | .projects[$own].hasCompletedProjectOnboarding = true
+  | .projects[$ws].hasTrustDialogAccepted = true' "$cfg" > "$tmp" && cat "$tmp" > "$cfg"
+rm -f "$tmp"
+
+for f in /usr/local/lib/guild/init.d/*.sh; do
+  [ -e "$f" ] || continue
+  OWN="$own" bash "$f" || echo "guild-init: $(basename "$f") failed" >&2
+done
+
+exec /usr/local/bin/guild-runner
