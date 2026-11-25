@@ -6,7 +6,7 @@ import Lake
 open Lake DSL
 
 package guild where
-  version := v!"0.1.0"
+  version := v!"0.1.1"
   leanOptions := #[⟨`warningAsError, true⟩]
 
 require leancurl from git "https://github.com/paulbutcher/leancurl" @ "v0.4.0"
@@ -32,9 +32,17 @@ input_dir lasmLayer where
   path := "layers/lasm"
   text := true
 
+input_dir kitTemplates where
+  path := "templates"
+  text := true
+
+input_dir kitProxy where
+  path := "docker/proxy"
+  text := true
+
 @[default_target]
 lean_lib Guild where
-  needs := #[protocolText, leanLayer, lasmLayer]
+  needs := #[protocolText, leanLayer, lasmLayer, kitTemplates, kitProxy]
 
 @[test_driver]
 script tests do

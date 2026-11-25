@@ -3,10 +3,11 @@ Copyright (c) 2026 Paul Butcher. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
 
-/-! Templates for the agents' instructions: `{{NAME}}` is a value, `{{#flag}}…{{/flag}}` is kept
-only when the flag is on (`{{^flag}}` only when it is off), and `{{>name}}` is a block of text
-supplied by a layer or the project, itself a template, and empty when nothing supplies it. A
-section tag, or an insert that comes out empty, alone on its line takes the line with it. -/
+/-! Templates for the agents' instructions and the files the kit writes: `{{NAME}}` is a value,
+`{{#flag}}…{{/flag}}` is kept only when the flag is on (`{{^flag}}` only when it is off), and
+`{{>name}}` is a block of text supplied by a layer or the project, itself a template, and empty
+when nothing supplies it. A section tag, or an insert that comes out empty, alone on its line
+takes the line with it. `{{` followed by a space is text. -/
 
 namespace Guild.Template
 
@@ -41,6 +42,12 @@ def tokens (src : String) : Except String (List Piece) := do
   | first :: rest =>
     let mut out := [Piece.text first]
     for part in rest do
+      -- A `{{` before a space is text, so GitHub Actions' `${{ … }}` passes through.
+      if part.startsWith " " then
+        out := match out with
+          | .text prev :: more => .text (prev ++ "{{" ++ part) :: more
+          | _ => .text ("{{" ++ part) :: out
+        continue
       match part.splitOn "}}" with
       | t :: after@(_ :: _) =>
         out := .text ("}}".intercalate after) :: .tag (← Tag.parse t) false :: out

@@ -18,6 +18,7 @@ import Guild.Config
 import Guild.Settings
 import Guild.Template
 import Guild.Protocol
+import Guild.Kit
 -- Dependencies the kit will use, so that `lake build` proves each builds on this toolchain.
 import Leancurl
 import SQLite

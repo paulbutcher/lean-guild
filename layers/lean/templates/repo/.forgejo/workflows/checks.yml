@@ -1,0 +1,77 @@
+# Required checks for every repository of the project but the coordination one. The
+# forge's directory is code-owned by the human, so agents can't change this file
+# without them. No `uses:` actions: everything here is plain shell, so CI fetches no
+# code from outside. FORGE_URL and the proxy settings come from the runner.
+name: checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+defaults:
+  run:
+    shell: bash   # bash with -eo pipefail
+
+jobs:
+  build:
+    runs-on: docker
+    container:
+      image: {{CI_IMAGE}}
+      volumes:
+        - {{TOOLCHAIN_VOLUME}}:/opt/elan/toolchains
+    env:
+      ELAN_HOME: /opt/elan
+      # ci-reader's token: reads every repository of this project, writes
+      # nothing. The job's own token reads only this repository.
+      TOKEN: ${{ secrets.DEPS_READ_TOKEN }}
+      # Every GitHub owner this project's repositories have lived under,
+      # current first, and the repositories; set by the kit's bootstrap.
+      GH_OWNERS: ${{ vars.DEPS_GITHUB_OWNERS }}
+      DEPS_REPOSITORIES: ${{ vars.DEPS_REPOSITORIES }}
+    steps:
+      - name: Check out
+        run: |
+          echo /opt/elan/bin >> "$GITHUB_PATH"
+          auth="Authorization: Basic $(printf 'ci-reader:%s' "$TOKEN" | base64 -w0)"
+          git config --global "http.${FORGE_URL}/.extraHeader" "$auth"
+          # Dependencies keep their GitHub URLs; fetch this project's from the forge.
+          [ -n "$DEPS_REPOSITORIES" ] || { echo "::error::The DEPS_REPOSITORIES variable is not set; run the kit's bootstrap"; exit 1; }
+          for owner in $GH_OWNERS; do
+            for repo in $DEPS_REPOSITORIES; do
+              git config --global --add "url.${FORGE_URL}/${GITHUB_REPOSITORY_OWNER}/${repo}.insteadOf" \
+                "https://github.com/${owner}/${repo}"
+            done
+          done
+          git init -q .
+          git remote add origin "${FORGE_URL}/${GITHUB_REPOSITORY}.git"
+          git fetch -q --tags origin "+${GITHUB_REF}:refs/ci/head" '+refs/heads/main:refs/remotes/origin/main'
+          git checkout -q --detach "$GITHUB_SHA"
+          git log -1 --format='Checked out %H: %s'
+
+      - name: Internal dependencies pinned to release tags
+        run: bash scripts/check-pins.sh
+
+      - name: Build, failing on sorry
+        run: |
+          lake build 2>&1 | tee build.log
+          if grep -qE 'declaration uses .sorry.' build.log; then
+            echo "::error::A declaration uses sorry"
+            exit 1
+          fi
+{{>lasm:install}}
+
+      - name: Tests
+        run: |
+{{>lasm:require}}
+          lake test
+{{>lasm:site}}
+
+      - name: API lock is up to date
+        run: |
+          if [ -f scripts/api-lock.sh ]; then
+            bash scripts/api-lock.sh > API.lock.generated
+            diff -u API.lock API.lock.generated
+          else
+            echo "::warning::scripts/api-lock.sh not implemented yet; skipping"
+          fi

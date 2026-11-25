@@ -1,0 +1,14 @@
+# Copyright (c) 2026 Paul Butcher. All rights reserved.
+# Released under Apache 2.0 license as described in the file LICENSE.
+
+# What the stage tests add to a deployment: fixtures and checks for the tools container,
+# and a Forgejo that may push mirrors to a second organisation of its own.
+services:
+  forgejo:
+    environment:
+      FORGEJO__migrations__ALLOWED_DOMAINS: forgejo
+      FORGEJO__migrations__ALLOW_LOCALNETWORKS: "true"
+  tools:
+    volumes:
+      - ./test/fixtures:/etc/kit-fixtures:ro
+      - ./test/stages/checks.sh:/usr/local/lib/kit/checks.sh:ro

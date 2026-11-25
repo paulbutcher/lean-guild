@@ -17,3 +17,10 @@ lean_lib GuildTests
 @[default_target]
 lean_exe tests where
   root := `Main
+
+/-- The kit, built with each of the test projects' configuration, for the stage tests. -/
+lean_exe «kit-plain» where
+  root := `KitPlain
+
+lean_exe «kit-browser» where
+  root := `KitBrowser

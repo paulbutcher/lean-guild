@@ -49,12 +49,13 @@ def times : Nat → String
   | 2 => "twice"
   | n => s!"{numberWord n} times"
 
-/-- `a`, `a and b`, `a, b and c`. -/
-def listing : List String → String
+/-- `a`, `a and b`, `a, b and c`, or with another word in place of "and". -/
+def listing (xs : List String) (conj : String := "and") : String :=
+  match xs with
   | [] => ""
   | [a] => a
-  | [a, b] => s!"{a} and {b}"
-  | a :: rest => s!"{a}, {listing rest}"
+  | [a, b] => s!"{a} {conj} {b}"
+  | a :: rest => s!"{a}, {listing rest conj}"
 
 def code (s : String) : String := s!"`{s}`"
 
@@ -74,8 +75,10 @@ def runs : List Nat → List (Nat × Nat)
 
 /-- When an agent is woken again for what it still owes, from the backoff: "at once, then twice
 more 15 minutes apart". -/
-def wakes (backoff : List Nat) : String :=
-  let first (d : Nat) := if d == 0 then "at once" else s!"after {duration d}"
+def wakes (backoff : List Nat) (afterRun : Bool := false) : String :=
+  let first (d : Nat) :=
+    if afterRun then (if d == 0 then "at once when your run ends" else s!"{duration d} after your run ends")
+    else if d == 0 then "at once" else s!"after {duration d}"
   let more := fun ((d, k) : Nat × Nat) =>
     if k == 1 then s!"once more after {duration d}" else s!"{times k} more {duration d} apart"
   match backoff with
@@ -100,13 +103,16 @@ def context (p : Project) (s : Settings) (text : Text) (a : Agent) : Context :=
   { vars :=
       [("AGENT", a.name), ("ORG", s.forgeOrg), ("HUMAN", s.human), ("FORGE_WEB_URL", s.forgeWebUrl),
        ("PROJECT", c.name), ("COORDINATION", c.coordination),
-       ("REPOS", listing (c.repoNames.map code)), ("HUMAN_ONLY", humanOnly c),
-       ("WAKES", wakes c.bounds.backoff), ("TRIES", times c.bounds.backoff.length),
+       ("REPOS", listing (c.repoNames.map code)),
+       ("LIBRARIES", listing ((c.repoNames.filter (· != c.coordination)).map code)),
+       ("HUMAN_ONLY", humanOnly c), ("HUMAN_ONLY_OR", listing (c.humanOnlyFiles.map code) "or"),
+       ("WAKES", wakes c.bounds.backoff),
+       ("WAKES_AFTER_RUN", wakes c.bounds.backoff true), ("TRIES", times c.bounds.backoff.length),
        ("ROUNDS", numberWord c.bounds.reviewRounds),
        ("RERUNS", if c.bounds.rerunLimit == 1 then "one re-run" else s!"{numberWord c.bounds.rerunLimit} re-runs"),
        ("NUDGES", numberWord c.bounds.supervisorNudges),
        ("WORKSPACE_STATE", s.workspaceState), ("FORGE_DIR", c.forgeDir),
-       ("UPSTREAM_EXAMPLES", listing (c.upstreams.map (·.title) ++ ["Lean", "Mathlib", "any other"])),
+       ("UPSTREAM_EXAMPLES", listing (c.upstreams.map (·.title) ++ ["Lean", "Mathlib", "any other"]) "or"),
        ("MILESTONE_REVIEWERS", listing (c.milestoneReviewers.map (code ·.name))),
        ("PLAYWRIGHT", playwright)] ++
       opt "COORDINATOR" (c.coordinator?.map (·.name)) ++

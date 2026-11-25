@@ -15,7 +15,7 @@
 @@ reuse
 Before designing anything new (a type, an algorithm, a group of lemmas), find out whether it already exists, in this order:
 
-1. this project's other libraries, at `/workspace/<repo>`: the `README.md` of each of {{REPOS}}, which lists what the library does by job, then its `API.lock`, and its source for private declarations. Search for the job, not a name: the same job under another name is still a repeat;
+1. this project's other libraries, at `/workspace/<repo>`: the `README.md` of each of {{LIBRARIES}}, which lists what the library does by job, then its `API.lock`, and its source for private declarations. Search for the job, not a name: the same job under another name is still a repeat;
 2. the catalogue of known libraries, `PRIOR-ART.md` in `{{COORDINATION}}`, which includes the human's own Lean libraries;
 3. Lean core, Std, Batteries and Mathlib: search them with Loogle (`https://loogle.lean-lang.org/json?q=<query>`) or by reading their source;
 4. other Lean packages, on Reservoir (`https://reservoir.lean-lang.org`).

@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.1.1
+
+- The protocol joins its lists of files and upstream projects with "or" where the sentence needs it, says the first wake again comes when a run ends, and points the reuse search at the libraries alone.
+
 ## v0.1.0
 
 - A pull request whose mergeability the forge hasn't worked out by its deadline is `check stuck`, held by its author, where the reference waited on the forge indefinitely.

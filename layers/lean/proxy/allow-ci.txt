@@ -1,0 +1,7 @@
+# Lean toolchains and release downloads, git reads of third-party packages, Loogle and
+# Reservoir.
+github.com
+objects.githubusercontent.com
+release-assets.githubusercontent.com
+raw.githubusercontent.com
+.lean-lang.org

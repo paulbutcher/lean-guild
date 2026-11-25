@@ -2,7 +2,7 @@
 Copyright (c) 2026 Paul Butcher. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
-import Guild
+import Guild.Kit
 
 /-! The guild's own test projects: a plain Lean one, and a small one that targets the browser. -/
 
@@ -33,7 +33,7 @@ def plain : Project where
          { name := "architecture", kind := .milestoneReviewer, filesOn := .all },
          { name := "process", kind := .supervisor, filesOn := .all, humanDecides := true }]
       bounds := { patience := 3, runBudget := 40 }
-      forge := .forgejo none false
+      forge := .forgejo (some { owner := "testbed", formerOwners := ["testbed-old"] }) false
       template := { namespaceRoot := "Testbed", readmeLine := "Part of the Testbed libraries." } }
 
 def plainText : Protocol.Text where

@@ -1,0 +1,2 @@
+# npm: Lasm and its dependencies.
+registry.npmjs.org

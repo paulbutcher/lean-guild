@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Copyright (c) 2026 Paul Butcher. All rights reserved.
+# Released under Apache 2.0 license as described in the file LICENSE.
+
+# Admin tasks against Forgejo, run in the tools container by the kit's scripts.
+#   kit init-secrets   generate the runner and webhook secrets, if missing
+#   kit check-human    succeed if secrets/human/token is a working admin token
+#   kit bootstrap      converge the organisation, repositories, accounts, tokens, teams,
+#                      webhooks and mirrors
+#   kit setup-repo REPO LEVEL  apply an autonomy level to a repository
+#   kit mirrors [--rotate]  give every repository its push mirror; --rotate replaces
+#                      each mirror's token
+#   kit mirror-status  each push mirror's last sync and error
+#   kit api METHOD PATH [JSON]  call the API as the human, print the reply
+set -euo pipefail
+. /usr/local/lib/kit/forge.sh
+for f in /usr/local/lib/kit/*.sh; do [ "$f" = /usr/local/lib/kit/forge.sh ] || . "$f"; done
+
+secret_file() {
+  local f="/secrets/$1" bytes="$2"
+  [ -s "$f" ] && return
+  mkdir -p "$(dirname "$f")"
+  ( umask 077; random_hex "$bytes" > "$f" )
+  log "created secrets/$1"
+}
+
+cmd_init_secrets() {
+  secret_file ci/runner-secret 20        # forgejo-cli wants 40 hex digits
+  secret_file dispatcher/webhook-secret 32
+  secret_file dispatcher/admin-key 32
+  # Only the coordinator's container holds it: the gatekeeper releases only on requests
+  # that carry it.
+  secret_file gatekeeper/coordinator-key 32
+  secret_file gatekeeper/webhook-secret 32
+  # Each agent's runner proves who it is to the dispatcher with its own key.
+  local name
+  for name in $(cut -f1 /etc/kit/agents.tsv); do
+    secret_file "runner-keys/$name" 32
+  done
+}
+
+# Exits 0 if the token works as HUMAN_USER with admin rights, 3 if Forgejo wants the
+# account's password changed first, 1 otherwise.
+cmd_check_human() {
+  [ -s /secrets/human/token ] || exit 1
+  TOKEN="$(token_of human)"
+  local s
+  s="$(api GET /user)"
+  if [ "$s" = 403 ] && grep -q 'must change your password' "$RESP"; then exit 3; fi
+  [ "$s" = 200 ] && [ "$(jq -r '.login + " " + (.is_admin | tostring)' "$RESP")" = "$HUMAN_USER true" ]
+}
+
+case "${1:-}" in
+  init-secrets) cmd_init_secrets ;;
+  check-human) cmd_check_human ;;
+  bootstrap) cmd_bootstrap ;;
+  setup-repo) shift; cmd_setup_repo "$@" ;;
+  mirrors) shift; cmd_mirrors "$@" ;;
+  mirror-status) cmd_mirror_status ;;
+  api) shift; TOKEN="$(token_of human)"; call 200,201,204 "$@" | jq . ;;
+  *)
+    # Commands a test deployment mounts.
+    if [ -n "${1:-}" ] && declare -F "cmd_${1//-/_}" >/dev/null; then f="cmd_${1//-/_}"; shift; "$f" "$@"; exit; fi
+    sed -n '4,/^set /p' "$0" | sed '$d; s/^# \{0,1\}//' >&2; exit 2 ;;
+esac

@@ -1,0 +1,11 @@
+name = "testbed-base"
+version = "0.1.0"
+defaultTargets = ["TestbedBase"]
+testDriver = "tests"
+
+[[lean_lib]]
+name = "TestbedBase"
+
+[[lean_exe]]
+name = "tests"
+root = "Tests"

@@ -143,6 +143,10 @@ structure Config where
   template : LibraryTemplate
   /-- Files only the human may change, besides the kit's and the layers'. -/
   humanOnly : List String := []
+  /-- Domains the project's agents and CI may reach, besides the kit's and the layers': one per
+  line, a leading dot allowing subdomains. -/
+  allowAgents : List String := []
+  allowCi : List String := []
   deriving Repr, Inhabited
 
 namespace Config

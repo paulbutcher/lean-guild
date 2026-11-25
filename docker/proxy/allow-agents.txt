@@ -1,0 +1,15 @@
+# The kit's part of the agents' allowlist, which each layer's and the project's join.
+# One domain per line; a leading dot also allows subdomains. GitHub is listed by exact
+# host, and api.github.com is absent, so nothing behind this proxy calls GitHub's API.
+
+# Claude Code
+.anthropic.com
+.claude.ai
+.claude.com
+
+# VS Code server and extensions, for attaching to agent containers
+update.code.visualstudio.com
+vscode.download.prss.microsoft.com
+marketplace.visualstudio.com
+.gallerycdn.vsassets.io
+.vscode-cdn.net

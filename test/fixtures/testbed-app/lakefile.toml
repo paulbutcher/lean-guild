@@ -1,0 +1,17 @@
+name = "testbed-app"
+version = "0.1.0"
+defaultTargets = ["TestbedApp"]
+testDriver = "tests"
+
+# By its GitHub URL, as published: CI and agents fetch it from the forge instead.
+[[require]]
+name = "testbed-base"
+git = "https://github.com/testbed-old/testbed-base"
+rev = "v0.1.0"
+
+[[lean_lib]]
+name = "TestbedApp"
+
+[[lean_exe]]
+name = "tests"
+root = "Tests"
