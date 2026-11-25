@@ -29,8 +29,17 @@ wait_run() {
   echo timeout
 }
 
+# Whether the latest run for a commit failed on a sorry, and not some step before the build.
+failed_on_sorry() {
+  local run job
+  run="$(call 200 GET "/repos/$ORG/$1/actions/runs?limit=50" \
+    | jq -r --arg s "$2" '[(.workflow_runs // .)[] | select((.commit_sha // .head_sha) == $s)] | max_by(.id) | .id')"
+  job="$(call 200 GET "/repos/$ORG/$1/actions/runs/$run/jobs" | jq -r '.[0].id')"
+  call 200 GET "/repos/$ORG/$1/actions/jobs/$job/logs" | grep -q 'A declaration uses sorry'
+}
+
 # push_fixture REPO: the fixture and the kit's repository templates, as main's first
-# commit, by the human. Prints the working copy.
+# commit, by the human.
 push_fixture() {
   local repo="$1" work
   work="$(mktemp -d)"
@@ -43,13 +52,23 @@ push_fixture() {
     git init -q -b main && git add -A
     git_as commit -qm "$repo fixture"
     git_as push -q "$FORGE_URL/$ORG/$repo.git" main
-  ) >&2 || return 1
-  echo "$work"
+  )
 }
+
+# Each repository's first commit, before scripts/setup-repo.sh protects main; the base
+# library's is released as v0.1.0.
+cmd_test_push_fixtures() {
+  TOKEN="$(token_of human)"
+  push_fixture testbed-base || die "couldn't push testbed-base"
+  push_fixture testbed-app || die "couldn't push testbed-app"
+  call 201 POST "/repos/$ORG/testbed-base/tags" '{"tag_name":"v0.1.0","target":"main"}' >/dev/null
+}
+
+main_of() { call 200 GET "/repos/$ORG/$1/branches/main" | jq -r .commit.id; }
 
 cmd_test_stage1() {
   TOKEN="$(token_of human)"
-  local base_work app_work sha_base sha_app sha_bad s pr t0 t1
+  local base_work sha_base sha_app sha_bad s pr t0 t1
 
   s="$(curl -sS -o "$RESP" -w '%{http_code}' "$FORGE_URL/user/sign_up")"
   if [ "$s" = 404 ] || [ "$s" = 403 ] || grep -qi 'registration is disabled' "$RESP"; then
@@ -58,36 +77,37 @@ cmd_test_stage1() {
     fail "registration page answered $s"
   fi
 
-  # The base library, released as v0.1.0.
-  base_work="$(push_fixture testbed-base)" || { fail "couldn't push testbed-base"; return 1; }
-  sha_base="$(git -C "$base_work" rev-parse HEAD)"
-  (cd "$base_work" && git tag v0.1.0 && git_as push -q "$FORGE_URL/$ORG/testbed-base.git" v0.1.0) \
-    || fail "the human couldn't push a release tag"
+  sha_base="$(main_of testbed-base)"
   info "waiting for CI on testbed-base's main; the first run downloads a Lean toolchain"
   t0="$(date +%s)"
   s="$(wait_run testbed-base "$sha_base")"
   t1="$(date +%s)"
   [ "$s" = success ] && pass "CI built testbed-base in $((t1 - t0))s" || fail "CI on testbed-base's main ended: $s"
 
-  # The app, which names the base library by its former owner's GitHub URL.
-  app_work="$(push_fixture testbed-app)" || { fail "couldn't push testbed-app"; return 1; }
-  sha_app="$(git -C "$app_work" rev-parse HEAD)"
+  # The app names the base library by its former owner's GitHub URL.
+  sha_app="$(main_of testbed-app)"
   s="$(wait_run testbed-app "$sha_app")"
   [ "$s" = success ] && pass "CI fetched a dependency named by GitHub URL from Forgejo" \
                      || fail "CI on testbed-app's main ended: $s"
 
   # A pull request with a sorry must fail.
+  base_work="$(mktemp -d)"
   (
+    git_as clone -q "$FORGE_URL/$ORG/testbed-base.git" "$base_work"
     cd "$base_work"
     git checkout -q -b broken
     cp /etc/kit-fixtures/testbed-base/TestbedBase.broken.lean TestbedBase.lean
     git_as commit -qam "Use sorry"
-    git_as push -q "$FORGE_URL/$ORG/testbed-base.git" broken
-  )
+    git_as push -q origin broken
+  ) || { fail "couldn't push the sorry branch"; return 1; }
   sha_bad="$(git -C "$base_work" rev-parse HEAD)"
   pr="$(call 201 POST "/repos/$ORG/testbed-base/pulls" '{"head":"broken","base":"main","title":"Use sorry"}' | jq -r .number)"
   s="$(wait_run testbed-base "$sha_bad")"
-  [ "$s" = failure ] && pass "CI failed the pull request with a sorry (#$pr)" || fail "CI on the sorry pull request ended: $s"
+  if [ "$s" = failure ] && failed_on_sorry testbed-base "$sha_bad"; then
+    pass "CI failed the pull request with a sorry (#$pr)"
+  else
+    fail "CI on the sorry pull request ended $s, not on the sorry"
+  fi
 
   # The owner agent's permissions on its own repository.
   s="$(TOKEN="$(token_of base)" api POST "/repos/$ORG/testbed-base/releases" '{"tag_name":"v9.9.9","target_commitish":"main","name":"v9.9.9"}')"
@@ -156,14 +176,18 @@ cmd_test_stage1() {
   [ "$FAILS" = 0 ]
 }
 
-# With mirrors off, no repository has a push mirror.
+# With mirrors off, Forgejo's mirroring is disabled, so it refuses to list or make push
+# mirrors at all.
 cmd_test_mirrors_off() {
   TOKEN="$(token_of human)"
-  local r n total=0
+  local r s
   for r in $(all_repos); do
-    n="$(call 200 GET "/repos/$ORG/$r/push_mirrors" | jq length)"
-    total=$((total + n))
+    s="$(api GET "/repos/$ORG/$r/push_mirrors")"
+    if [ "$s" = 400 ] && grep -q 'Mirror feature is disabled' "$RESP"; then
+      pass "with mirrors off, Forgejo's mirroring is disabled for $r"
+    else
+      fail "with mirrors off, listing $r's push mirrors answered $s: $(head -c 300 "$RESP")"
+    fi
   done
-  [ "$total" = 0 ] && pass "with mirrors off, bootstrap created no push mirror" || fail "with mirrors off, $total push mirror(s) exist"
   [ "$FAILS" = 0 ]
 }

@@ -33,7 +33,8 @@ structure Env where
 def St.settled (s : St) : Bool := !s.standing || s.escalated
 
 /-- How many runs may end with it standing before it is the human's, and how many times in a
-row a quiet one waits for its agent's other work. Without the second bound, an agent kept busy
+row a quiet one waits for its agent's other work: a wait is a run of that agent, since a quiet
+one that waited is due again only when the run ends. Without the second bound, an agent kept busy
 would never be woken for a quiet obligation, and no one would be told. -/
 structure Bounds where
   tries : Nat

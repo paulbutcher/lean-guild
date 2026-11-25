@@ -45,6 +45,9 @@ deploy() {
     printf '%s\n' "$@"
   } > "$dir/settings.env"
   export KIT_ENV="$dir/settings.env" KIT="$root/test/.lake/build/bin/$kit"
+  # A kept deployment from an earlier run, and its secrets, which belong to its Forgejo.
+  dc --profile tools down -v --remove-orphans >/dev/null 2>&1 || true
+  rm -rf "${dir:?}/state"
 }
 in_kit() { test/stages/in-kit.sh "$@"; }
 dc() { in_kit docker compose "$@"; }
@@ -64,13 +67,18 @@ MIRRORS=off scripts/bootstrap.sh >/dev/null
 tools api POST /orgs '{"username":"testbed","visibility":"private"}' >/dev/null
 for r in testbed-coordination testbed-base testbed-app; do
   tools api POST /orgs/testbed/repos "{\"name\":\"$r\",\"private\":true}" >/dev/null
+  # As on GitHub, the mirror runs no CI of its own here.
+  tools api PATCH "/repos/testbed/$r" '{"has_actions":false}' >/dev/null
 done
 state="$(in_kit sh -c 'echo "$STATE_DIR"')"
 cp "$state/secrets/human/token" "$state/secrets/github/mirror-token"
 scripts/bootstrap.sh >/dev/null
 n="$(scripts/bootstrap.sh 2>/dev/null | tail -1)"
 [ "$n" = 0 ] && pass "re-running bootstrap changes nothing" || fail "re-running bootstrap made $n change(s)"
-scripts/setup-repo.sh >/dev/null
+tools test-push-fixtures </dev/null >/dev/null
+# 3: it opened a pull request with the files a level needs.
+s=0; scripts/setup-repo.sh >/dev/null || s=$?
+[ "$s" = 0 ] || [ "$s" = 3 ] && pass "setup-repo set up every repository" || fail "setup-repo exited $s"
 bound="$(dc port ports 3000)"
 case "$bound" in
   127.0.0.1:*) pass "Forgejo is published on $bound only" ;;

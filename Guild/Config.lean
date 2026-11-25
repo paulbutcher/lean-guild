@@ -79,7 +79,8 @@ structure Bounds where
   /-- Seconds before each wake again of an obligation still standing: their number is how many
   runs may leave it standing before it is the human's. -/
   backoff : List Nat := [0, 900, 900]
-  /-- Times in a row a quiet obligation waits for its busy agent. -/
+  /-- Runs of its busy agent a quiet obligation lets go ahead of it: once it has waited, it is due
+  again each time that agent's run ends, and waits again if the agent has more work queued. -/
   patience : Nat
   /-- CI re-runs per head commit. -/
   rerunLimit : Nat := 1

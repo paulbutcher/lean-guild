@@ -8,6 +8,8 @@ services:
     environment:
       FORGEJO__migrations__ALLOWED_DOMAINS: forgejo
       FORGEJO__migrations__ALLOW_LOCALNETWORKS: "true"
+      # It mirrors over plain HTTP, inside its own network.
+      FORGEJO__migrations__ALLOW_UNENCRYPTED: "true"
   tools:
     volumes:
       - ./test/fixtures:/etc/kit-fixtures:ro

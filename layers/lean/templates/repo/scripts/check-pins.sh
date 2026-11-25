@@ -4,7 +4,7 @@
 # tag (vX.Y.Z). Other dependencies are not checked.
 set -euo pipefail
 owners="${GH_OWNERS:-}"
-repos="${DEPS_REPOSITORIES:?set DEPS_REPOSITORIES to this project's repositories, space-separated}"
+repos="${DEPS_REPOSITORIES:?set DEPS_REPOSITORIES to the project repositories, space-separated}"
 
 if [ ! -f lake-manifest.json ]; then
   echo "No lake-manifest.json; nothing to check."

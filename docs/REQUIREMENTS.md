@@ -38,7 +38,7 @@ The guild is a kit that runs a team of Claude Code agents on a Lean project thro
 
 - Port the reference's states for every unit (issues, pull requests, releases, milestones, the kit) and its obligations, with the reference's `test_states.py` checks as kernel-checked theorems.
 - Prove the properties ranked in `lean-core.md`: every unfinished state has a holder who is woken, and woken again while it stands; every step changes a fact the state depends on; no marker outlives its cause; every state held by the forge or CI has a deadline, a mergeability check the forge never finishes included; an unresolved obligation reaches the human within a bounded number of wakes; the waits between units have no loops, since a `Blocked-by:` line is invalid when it closes a loop through any waits, not only through other such lines.
-- A quiet obligation waits for a busy agent at most `patience` times (`patient_settles`), fixing the reference's starvation.
+- A quiet obligation waits for a busy agent at most `patience` times (`patient_settles`), fixing the reference's starvation. Once it has waited it is due again when that agent's run ends, so `patience` counts the runs it lets go ahead, not time.
 - Property 8: every cycle through the world is bounded. CI re-runs are counted per head commit from the forge, not the agent's memory; `forge ci --rerun` refuses past the limit (default one); reaching it sends the human a notice. Every other step that hands a unit to the world is checked for the same loop.
 - A run budget per unit: when a unit's agent runs, counted from the ledger, reach the budget, the human gets one notice; marking it seen restarts the count. It is proved as a bound that holds whatever the states say.
 

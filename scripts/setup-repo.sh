@@ -12,7 +12,7 @@ confirm "This applies autonomy levels to the project's repositories"
 if [ $# = 0 ]; then
   status=0
   while IFS=$'\t' read -r repo level _; do
-    tools setup-repo "$repo" "$level" || { s=$?; [ "$s" = 3 ] && status=3 || exit "$s"; }
+    tools setup-repo "$repo" "$level" </dev/null || { s=$?; [ "$s" = 3 ] && status=3 || exit "$s"; }
   done < "$KIT_CONFIG/repos.tsv"
   exit "$status"
 fi

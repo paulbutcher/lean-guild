@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.2.0
+
+- The kit deploys a project: staged images, Forgejo, proxies with joined allowlists, CI in its own engine, bootstrap and repository setup, and push mirrors that a deployment can turn off with `MIRRORS=off`.
+- CI fetches a dependency named by its GitHub URL from Forgejo.
+- A project builds a kit executable with `Guild.Kit.main`, whose `export` command writes what the scripts read; `Config` gains `allowAgents` and `allowCi`, and `Settings` gains `MIRRORS` and `MIRROR_BASE`.
+- `Bounds.patience` counts the runs of a busy agent that a quiet obligation lets go ahead of it.
+
 ## v0.1.1
 
 - The protocol joins its lists of files and upstream projects with "or" where the sentence needs it, says the first wake again comes when a run ends, and points the reuse search at the libraries alone.

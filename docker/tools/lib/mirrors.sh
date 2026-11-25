@@ -52,7 +52,8 @@ cmd_mirrors() {
 cmd_mirror_status() {
   TOKEN="$(token_of human)"
   [ -n "$MIRROR_OWNER" ] || { echo "The configuration has no mirrors."; return 0; }
-  mirrors_off && echo "Mirrors are off in this deployment."
+  # Forgejo's mirroring is disabled too, and refuses even to list them.
+  mirrors_off && { echo "Mirrors are off in this deployment."; return 0; }
   local r
   for r in $(all_repos); do
     [ "$(api GET "/repos/$ORG/$r")" = 200 ] || continue
