@@ -86,10 +86,11 @@ services:
   ports:
     build: ./docker/ports
     restart: unless-stopped
-    command: ["socat", "TCP-LISTEN:3000,fork,reuseaddr", "TCP:forgejo:3000"]
+    command: ["sh", "-c", "socat TCP-LISTEN:3001,fork,reuseaddr TCP:dispatcher:8080 & exec socat TCP-LISTEN:3000,fork,reuseaddr TCP:forgejo:3000"]
     networks: [publish, forge-web]
     ports:
       - "127.0.0.1:${FORGE_PORT:-3000}:3000"
+      - "127.0.0.1:${DISPATCHER_PORT:-3001}:3001"
 
   # Egress for agents.
   proxy:
@@ -184,15 +185,52 @@ services:
       - ${STATE_DIR:-.}/secrets/gatekeeper:/run/secrets/gatekeeper:ro
       - ${STATE_DIR:-.}/control:/control:ro
 
-  # Stands in for the dispatcher until it exists: Forgejo's webhooks reach it, and it records
-  # them.
-  sink:
-    build: ./docker/sink
+  # Who is woken for what: the forge's webhooks, the agents' runners and the run ledger, which is in
+  # `dispatcher-state`, the reference's volume, so either kit finds the other's. Its status is on
+  # the host at 127.0.0.1:DISPATCHER_PORT. It waits for its token, which bootstrap makes.
+  dispatcher:
+    build:
+      context: ./docker/dispatcher
+      args: { USER_UID: "${HOST_UID:-1000}", USER_GID: "${HOST_GID:-1000}" }
+      additional_contexts: { build: "docker-image://${COMPOSE_PROJECT_NAME:-guild}-kit-build:1" }
+    image: ${COMPOSE_PROJECT_NAME:-guild}-dispatcher:1
     restart: unless-stopped
-    networks:
-      agents: { aliases: [dispatcher] }
+    oom_score_adj: -500
+    # A runaway dispatcher is killed and restarted in its own container rather than taking the
+    # host's memory.
+    mem_limit: ${DISPATCHER_MEMORY:-2g}
+    memswap_limit: ${DISPATCHER_MEMORY:-2g}
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    networks: [agents, forge-web]
+    depends_on: [forgejo]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      FORGE_URL: http://forgejo:3000
+      FORGE_WEB_URL: ${FORGE_WEB_URL:-http://localhost:${FORGE_PORT:-3000}}
+      FORGE_ORG: ${FORGE_ORG:?set FORGE_ORG}
+      HUMAN_USER: ${HUMAN_USER:?set HUMAN_USER}
+      STATE_DIR: /state
+      DEBOUNCE_SECONDS: ${DEBOUNCE_SECONDS:-60}
+      MAX_DELAY_SECONDS: ${MAX_DELAY_SECONDS:-900}
+      RECONCILE_SECONDS: ${RECONCILE_SECONDS:-900}
+      CONFORMANCE_SETTLE_SECONDS: ${CONFORMANCE_SETTLE_SECONDS:-600}
+      MERGE_STUCK_SECONDS: ${MERGE_STUCK_SECONDS:-600}
+      CI_MISSING_SECONDS: ${CI_MISSING_SECONDS:-600}
+      CI_LATE_SECONDS: ${CI_LATE_SECONDS:-3600}
+      PR_OPENED_HOLD_SECONDS: ${PR_OPENED_HOLD_SECONDS:-600}
+      MAX_RUN_RETRIES: ${MAX_RUN_RETRIES:-2}
+      RETRY_DELAY_SECONDS: ${RETRY_DELAY_SECONDS:-300}
+      ENV_RETRY_DELAYS: ${ENV_RETRY_DELAYS:-300,900,3600}
+      IDLE_SECONDS: ${IDLE_SECONDS:-1200}
+      CLAIM_START_SECONDS: ${CLAIM_START_SECONDS:-900}
+      ITEM_CACHE_SECONDS: ${ITEM_CACHE_SECONDS:-3600}
     volumes:
-      - sink-state:/state
+      - ${STATE_DIR:-.}/secrets/dispatcher:/run/secrets/dispatcher:ro
+      - ${STATE_DIR:-.}/secrets/runner-keys:/run/secrets/runner-keys:ro
+      - ${STATE_DIR:-.}/control:/control:ro
+      - ${KIT_CONFIG:?}/config.json:/etc/guild/config.json:ro
+      - dispatcher-state:/state
 
   # The kit's executables, built once for the images that run them.
   kit-build:
@@ -291,4 +329,4 @@ volumes:
   ci-docker-data:
   ci-certs:
   ci-runner-data:
-  sink-state:
+  dispatcher-state:

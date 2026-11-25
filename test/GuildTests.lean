@@ -19,3 +19,9 @@ import GuildTests.Gatekeeper
 import GuildTests.Hook
 import GuildTests.Tools
 import GuildTests.Runner
+import GuildTests.Dispatch.Issues
+import GuildTests.Dispatch.Asks
+import GuildTests.Dispatch.Units
+import GuildTests.Dispatch.Obligations
+import GuildTests.Dispatch.Runs
+import GuildTests.Dispatch.Properties

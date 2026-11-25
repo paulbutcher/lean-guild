@@ -84,7 +84,9 @@ structure Pull where
   /-- Requested reviewers as the forge lists them. Forgejo also lists everyone who has approved,
   requested or not: the timeline's `reviewRequest` entries say who was asked. -/
   requestedReviewers : List String
+  createdAt : String
   updatedAt : String
+  mergedAt : Option String
   deriving Repr, BEq
 
 inductive Verdict where

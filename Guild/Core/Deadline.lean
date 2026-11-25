@@ -2,11 +2,15 @@
 Copyright (c) 2026 Paul Butcher. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
-import Guild.Core.Pull
-import Guild.Core.Release
+module
+
+public import Guild.Core.Pull
+public import Guild.Core.Release
 
 /-! What the facts become when the deadline of a state the forge or CI holds runs out. The
 dispatcher evaluates such a unit again at that time. -/
+
+@[expose] public section
 
 namespace Guild.Pull
 

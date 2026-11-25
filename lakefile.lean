@@ -67,3 +67,7 @@ lean_exe forge where
 /-- The agent runner, for the life of an agent's container. -/
 lean_exe «guild-runner» where
   root := `Guild.Agent.RunnerMain
+
+/-- The dispatcher: who is woken for what, the run ledger, and what the human's pages show. -/
+lean_exe «guild-dispatcher» where
+  root := `Guild.Dispatcher.Main

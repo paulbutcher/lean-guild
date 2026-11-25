@@ -25,6 +25,9 @@ HOST_GID="${HOST_GID:-$(id -g)}"
 KIT_CONFIG="$STATE_DIR/config"
 export STATE_DIR COMPOSE_PROJECT_NAME HOST_UID HOST_GID KIT_CONFIG
 "$KIT" export "$KIT_CONFIG" || { echo "The kit couldn't export the project's configuration." >&2; exit 1; }
+# Each agent's service, generated with the export.
+COMPOSE_FILE="${COMPOSE_FILE:-compose.yaml}:$KIT_CONFIG/compose.agents.yaml"
+export COMPOSE_FILE
 set -a
 . "$KIT_CONFIG/project.env"
 set +a

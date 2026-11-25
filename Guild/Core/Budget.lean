@@ -2,10 +2,13 @@
 Copyright (c) 2026 Paul Butcher. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
+module
 
 /-! A budget of agent runs per unit, as a backstop for loops the states don't describe, such as
 an author pushing attempted fixes indefinitely. Every run woken for the unit counts, by any
 holder, whether it acted or not. -/
+
+@[expose] public section
 
 namespace Guild.Budget
 

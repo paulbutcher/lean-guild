@@ -25,9 +25,13 @@ structure PullPart where
   base : String
   headSha : String
   merged : Bool := false
+  mergedAt : Option String := none
+  mergeable : Option Bool := some true
   scheduled : Bool := false
   requested : List String := []
   reviews : Array Review := #[]
+  /-- The paths it changes, when a test says so rather than through commits. -/
+  files : Option (List String) := none
 
 structure Item where
   number : Nat
@@ -66,6 +70,7 @@ structure RepoState where
   releases : List Release := []
   tags : List Tag := []
   protection : Option Protection := none
+  milestones : List Milestone := []
 
 structure World where
   clock : Nat := 0
@@ -131,8 +136,8 @@ def toPull (i : Item) (p : PullPart) : Pull :=
   let approvers := (p.reviews.filter (·.verdict == .approve)).toList.map (·.author)
   { number := i.number, isOpen := i.isOpen, merged := p.merged, title := i.title, body := i.body,
     author := i.author, headSha := p.headSha, headRef := p.head, baseRef := p.base,
-    mergeable := some true, requestedReviewers := (p.requested ++ approvers).eraseDups,
-    updatedAt := i.updatedAt }
+    mergeable := p.mergeable, requestedReviewers := (p.requested ++ approvers).eraseDups,
+    createdAt := i.createdAt, updatedAt := i.updatedAt, mergedAt := p.mergedAt }
 
 def tree (r : RepoState) (sha : String) : List (String × String) :=
   ((r.commits.find? (·.sha == sha)).map (·.tree)).getD []
@@ -171,7 +176,7 @@ def doMerge (r : RepoState) (i : Item) (p : PullPart) (actor time : String) : W 
   let sha := hex (← fresh)
   let c := { sha, message := i.title, tree := tree r p.headSha, time }
   let i := note { i with isOpen := false, closedAt := some time,
-                         pull := some { p with merged := true, scheduled := false } } actor time .merged
+                         pull := some { p with merged := true, mergedAt := some time, scheduled := false } } actor time .merged
   let r := { r with commits := c :: r.commits,
                     branches := (p.base, sha) :: ((r.branches.filter (·.1 != p.base)).filter (·.1 != p.head)) }
   startRuns (setItem r i) c time
@@ -228,6 +233,7 @@ def as (ref : IO.Ref World) (who : String) : Forge where
   pullFiles repo n := run ref do
     let r ← repoOf repo
     let p ← pullOf (← itemOf r n)
+    if let some fs := p.files then return fs
     let base := (branchSha r p.base).map (tree r) |>.getD []
     return ((tree r p.headSha).filter fun f => base.lookup f.1 != some f.2).map (·.1)
   reviews repo n := run ref do return (← pullOf (← itemOf (← repoOf repo) n)).reviews.toList
@@ -244,7 +250,7 @@ def as (ref : IO.Ref World) (who : String) : Forge where
   jobLog _ job := run ref do return s!"job {job}"
   releases repo := run ref do return (← repoOf repo).releases
   tags repo := run ref do return (← repoOf repo).tags
-  milestones _ := run ref do return []
+  milestones repo := run ref do return (← repoOf repo).milestones
   createIssue repo k := run ref do
     let r ← repoOf repo
     let time ← tick

@@ -2,17 +2,21 @@
 Copyright (c) 2026 Paul Butcher. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
-import Guild.Core.Issue
-import Guild.Core.Pull
-import Guild.Core.Release
-import Guild.Core.Milestone
-import Guild.Core.Kit
+module
+
+public import Guild.Core.Issue
+public import Guild.Core.Pull
+public import Guild.Core.Release
+public import Guild.Core.Milestone
+public import Guild.Core.Kit
 
 /-! The waits between units. A unit held by other units waits on them: an issue in progress on
 its pull requests, a ready one on its repository's release, a held release on the issues that
 hold it, a milestone on its issues, the kit on its milestones and planning, and an item on what
 its `Blocked-by:` lines name. Every wait but `Blocked-by:` goes down a rank, so a loop of waits
 must pass through a `Blocked-by:` line, and a line that closes one is invalid. -/
+
+@[expose] public section
 
 namespace Guild.Waits
 

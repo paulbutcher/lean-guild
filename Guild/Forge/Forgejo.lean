@@ -74,7 +74,9 @@ structure RawPull where
   base : RawRef
   mergeable : Option Bool
   requested_reviewers : Option (Array RawUser)
+  created_at : String
   updated_at : String
+  merged_at : Option String
   deriving FromJson
 
 structure RawReview where
@@ -219,7 +221,7 @@ def RawPull.toPull (r : RawPull) : Pull :=
     body := r.body.getD "", author := r.user.login, headSha := r.head.sha, headRef := r.head.ref,
     baseRef := r.base.ref, mergeable := r.mergeable,
     requestedReviewers := ((r.requested_reviewers.getD #[]).map (·.login)).toList,
-    updatedAt := r.updated_at }
+    createdAt := r.created_at, updatedAt := r.updated_at, mergedAt := r.merged_at }
 
 def verdict : String → Verdict
   | "APPROVED" => .approve
@@ -345,6 +347,8 @@ the same page again; that ends the list rather than looping on it. -/
 def pages (c : Conn) (α : Type) [FromJson α] (path : String) (params : List (String × String) := [])
     (items : Json → M (Array Json) := fun j => match j with
       | .arr xs => pure xs
+      -- An empty list, as Forgejo answers for a new issue's timeline.
+      | .null => pure #[]
       | _ => throw (.decode s!"{path}: not a list")) : M (List α) := do
   let mut out : Array Json := #[]
   let mut last : Option (Array Json) := none
@@ -440,7 +444,11 @@ def connect (c : Conn) : Forge where
   pull repo n := do
     return (← find c RawPull (repoPath c repo ++ s!"/pulls/{n}")).map (·.toPull)
   pulls repo w := do
-    return (← pages c RawPull (repoPath c repo ++ "/pulls") [("state", which w)]).map (·.toPull)
+    -- An empty repository answers 404, though it exists: it has no pull requests.
+    try return (← pages c RawPull (repoPath c repo ++ "/pulls") [("state", which w)]).map (·.toPull)
+    catch
+      | .status 404 m => if (← find c RawRepo (repoPath c repo)).isSome then return [] else throw (.status 404 m)
+      | err => throw err
   pullCommits repo n := do
     return (← pages c RawPullCommit (repoPath c repo ++ s!"/pulls/{n}/commits")).map (·.commit.message)
   pullFiles repo n := do

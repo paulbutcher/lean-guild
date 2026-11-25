@@ -2,10 +2,13 @@
 Copyright (c) 2026 Paul Butcher. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
+module
 
 /-! Re-runs of CI on one head commit, counted from the forge's attempt count rather than from an
 agent's memory: a fresh run doesn't know what the last one tried. A new head starts again from
 one attempt, since it is new code. -/
+
+@[expose] public section
 
 namespace Guild.Rerun
 

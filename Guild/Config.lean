@@ -2,9 +2,17 @@
 Copyright (c) 2026 Paul Butcher. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
+module
+
+public import Json
+import JsonDeriving
 
 /-! A project's static configuration: what it decides, checked when the project compiles.
 Deployment settings and secrets are read from the environment instead (`Guild.Settings`). -/
+
+@[expose] public section
+
+open Json
 
 namespace Guild
 
@@ -22,7 +30,7 @@ inductive Kind
   /-- A milestone reviewer that also supervises: woken when the kit is quiet with work
   stalled. -/
   | supervisor
-  deriving DecidableEq, Repr, Inhabited
+  deriving DecidableEq, Repr, Inhabited, ToJson, FromJson
 
 namespace Kind
 
@@ -43,14 +51,14 @@ structure Repository where
   /-- The autonomy level repository setup starts it at. Afterwards its level is the forge's,
   `CODEOWNERS` on `main`, which only the human changes. -/
   level : Nat := 1
-  deriving DecidableEq, Repr, Inhabited
+  deriving DecidableEq, Repr, Inhabited, ToJson, FromJson
 
 /-- The repositories an agent files issues on. -/
 inductive FilesOn
   /-- Every repository but its own. -/
   | all
   | only (repos : List String)
-  deriving DecidableEq, Repr, Inhabited
+  deriving DecidableEq, Repr, Inhabited, ToJson, FromJson
 
 structure Agent where
   name : String
@@ -61,7 +69,7 @@ structure Agent where
   /-- A milestone reviewer whose recommendations are the human's to decide, never the
   coordinator's: those that would change the kit or go upstream. -/
   humanDecides : Bool := false
-  deriving DecidableEq, Repr, Inhabited
+  deriving DecidableEq, Repr, Inhabited, ToJson, FromJson
 
 /-- A project outside the kit that the project depends on, with issues for it on the
 coordination repository labelled `upstream:<name>`. -/
@@ -72,7 +80,7 @@ structure Upstream where
   title : String
   /-- The agent woken when one of its issues blocks work. -/
   tracker : Option String := none
-  deriving DecidableEq, Repr, Inhabited
+  deriving DecidableEq, Repr, Inhabited, ToJson, FromJson
 
 /-- The bounds the states and their proofs depend on. -/
 structure Bounds where
@@ -95,14 +103,14 @@ structure Bounds where
   maxSpendPerDay : Option Nat := none
   /-- Comments a day by the supervisor on one item that wake whoever they mention. -/
   supervisorNudges : Nat := 3
-  deriving DecidableEq, Repr, Inhabited
+  deriving DecidableEq, Repr, Inhabited, ToJson, FromJson
 
 structure Layers where
   /-- The Lasm layer, for a project that targets the browser. -/
   lasm : Bool := false
   /-- The Lasm layer's optional macOS runner. -/
   macos : Bool := false
-  deriving DecidableEq, Repr, Inhabited
+  deriving DecidableEq, Repr, Inhabited, ToJson, FromJson
 
 /-- Push mirrors to GitHub. -/
 structure Mirror where
@@ -110,12 +118,12 @@ structure Mirror where
   /-- Owners the repositories had before, which old tags' lakefiles name. -/
   formerOwners : List String := []
   branches : List String := ["main"]
-  deriving DecidableEq, Repr, Inhabited
+  deriving DecidableEq, Repr, Inhabited, ToJson, FromJson
 
 inductive Forge
   | forgejo (mirror : Option Mirror) (imported : Bool)
   | github (owner : String)
-  deriving DecidableEq, Repr, Inhabited
+  deriving DecidableEq, Repr, Inhabited, ToJson, FromJson
 
 /-- The Lean layer's template for a new library. -/
 structure LibraryTemplate where
@@ -127,7 +135,7 @@ structure LibraryTemplate where
   leanOptions : List (String × String) := []
   /-- The library whose shared files and copyright header a new one starts from. -/
   seedFrom : Option String := none
-  deriving DecidableEq, Repr, Inhabited
+  deriving DecidableEq, Repr, Inhabited, ToJson, FromJson
 
 structure Config where
   /-- The project's name, as the agents' instructions use it. -/
@@ -148,7 +156,7 @@ structure Config where
   line, a leading dot allowing subdomains. -/
   allowAgents : List String := []
   allowCi : List String := []
-  deriving Repr, Inhabited
+  deriving Repr, Inhabited, ToJson, FromJson
 
 namespace Config
 

@@ -2,10 +2,13 @@
 Copyright (c) 2026 Paul Butcher. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
+module
 
 /-! What an agent owes on a unit, a state it holds or an ask it hasn't answered, and how the
 dispatcher moves it on each time it is due: it wakes the agent, and once `tries` runs have ended
 with it still standing, it becomes the human's as a `Stalled:` decision. -/
+
+@[expose] public section
 
 namespace Guild.Obligation
 

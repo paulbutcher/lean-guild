@@ -28,3 +28,7 @@ lean_exe «kit-browser» where
 /-- The contract tests, against a real Forgejo. -/
 lean_exe contract where
   root := `ContractMain
+
+/-- The dispatcher's tests alone. -/
+lean_exe dispatch where
+  root := `DispatchMain

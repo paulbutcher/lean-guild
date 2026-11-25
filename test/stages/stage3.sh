@@ -6,7 +6,7 @@
 #   - the plain test project, mirroring to a second organisation in its own Forgejo:
 #     bootstrap is idempotent, the networks allow only what they should, CI builds in its
 #     own engine and fetches a dependency named by GitHub URL from Forgejo, an owner can't
-#     tag or release, webhooks reach the dispatcher's stand-in, and the mirror carries
+#     tag or release, webhooks reach the dispatcher, and the mirror carries
 #     main and the release tag;
 #   - the same project deployed with mirrors off: bootstrap succeeds with no mirror token,
 #     creates no mirror, and nothing leaves the test Forgejo;
@@ -119,8 +119,8 @@ echo "== Forgejo API: registration, CI, permissions, mirrors"
 start="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 if tools test-stage1; then :; else fails=$((fails + 1)); fi
 
-echo "== Webhooks (the dispatcher's stand-in, since $start)"
-events="$(dc exec -T sink cat /state/events.jsonl 2>/dev/null \
+echo "== Webhooks (the dispatcher, since $start)"
+events="$(dc exec -T dispatcher cat /state/events.jsonl 2>/dev/null \
   | awk -v s="$start" -F'"at": "' '{ split($2, a, "\""); if (a[1] >= s) print }' || true)"
 if [ -z "$events" ]; then
   fail "the dispatcher received no webhooks during the test"

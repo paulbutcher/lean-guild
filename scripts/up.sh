@@ -2,13 +2,14 @@
 # Copyright (c) 2026 Paul Butcher. All rights reserved.
 # Released under Apache 2.0 license as described in the file LICENSE.
 
-# Build and start Forgejo, CI, the proxies and the webhook sink. Safe to re-run.
+# Build and start Forgejo, CI, the proxies, the dispatcher and the gatekeeper. Safe to re-run.
 set -euo pipefail
 . "$(dirname "$0")/lib.sh"
 confirm "This builds the kit's images and starts or recreates its containers"
 # Mounted into containers; must exist before Docker creates them as root.
 mkdir -p "$STATE_DIR/secrets/ci" "$STATE_DIR/secrets/dispatcher" "$STATE_DIR/secrets/gatekeeper" \
-  "$STATE_DIR/secrets/github" "$STATE_DIR/secrets/runner-keys" "$STATE_DIR/control" "$STATE_DIR/proxy"
+  "$STATE_DIR/secrets/github" "$STATE_DIR/secrets/runner-keys" "$STATE_DIR/secrets/claude" "$STATE_DIR/control" \
+  "$STATE_DIR/proxy"
 # Extra domains for Forgejo's proxy: empty except while an import runs.
 [ -e "$STATE_DIR/proxy/domains.txt" ] || : > "$STATE_DIR/proxy/domains.txt"
 
@@ -18,11 +19,11 @@ docker compose --profile build build kit-build
 images="agent-base agent-lean ci-lean"
 [ "$TOP_LAYER" = lasm ] && images="$images agent-lasm ci-lasm"
 docker compose --profile build build $images
-docker compose build gatekeeper
+docker compose build gatekeeper dispatcher
 docker compose --profile tools build tools
 docker tag "$COMPOSE_PROJECT_NAME-ci-$TOP_LAYER:1" "$CI_IMAGE"
 tools init-secrets
-docker compose up -d --remove-orphans forgejo ports proxy ci-proxy forge-proxy sink ci-docker gatekeeper
+docker compose up -d --remove-orphans forgejo ports proxy ci-proxy forge-proxy dispatcher ci-docker gatekeeper
 
 printf 'Waiting for Forgejo'
 i=0
@@ -51,5 +52,25 @@ if [ "$want" != "$have" ]; then
   docker save "$CI_IMAGE" | docker compose exec -T ci-docker docker load >/dev/null
 fi
 docker compose up -d ci-runner
+
+# Agents. Each needs its forge token (bootstrap), its runner key and the Claude credential; without
+# them it isn't started, rather than started into runs that can only fail.
+claude_token="$STATE_DIR/secrets/claude/oauth-token"
+if [ ! -s "$claude_token" ]; then
+  echo "Not starting agents: put a token from \`claude setup-token\` in $claude_token first."
+else
+  ( umask 077; printf 'CLAUDE_CODE_OAUTH_TOKEN=%s\n' "$(tr -d '[:space:]' < "$claude_token")" \
+      > "$STATE_DIR/secrets/claude/agent.env" )
+  ready=""
+  for a in $(cut -f1 "$KIT_CONFIG/agents.tsv"); do
+    if [ -s "$STATE_DIR/secrets/$a/token" ] && [ -s "$STATE_DIR/secrets/runner-keys/$a" ]; then
+      ready="$ready $a"
+    else
+      echo "Not starting $a: run scripts/bootstrap.sh, then this script again."
+    fi
+  done
+  [ -z "$ready" ] || docker compose up -d $ready
+fi
+
 docker compose ps
 echo "Forgejo: http://localhost:${FORGE_PORT:-3000}/"
