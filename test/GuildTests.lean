@@ -9,4 +9,7 @@ import GuildTests.Waits
 import GuildTests.Properties
 import GuildTests.PullProperties
 import GuildTests.Fuel
+
+import GuildTests.Projects
+import GuildTests.Interface
 import GuildTests.Axioms

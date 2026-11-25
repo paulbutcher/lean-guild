@@ -9,3 +9,6 @@
 - Each unit has a budget of agent runs, past which the human gets one notice until they mark it seen.
 - An upstream issue closed while ready for release is no longer reopened, which handed it back to the world to close again: the coordinator takes the label off instead.
 - States' steps no longer name the reference's scripts, forge paths or fixed timings.
+- A project's configuration is Lean values of the guild's types, checked when it compiles, with the rules that named agents derived from their kinds.
+- Deployment settings are read from the environment, and a missing one is an error rather than a default.
+- Each agent's instructions are assembled from the kit's protocol and kinds, the layers' blocks and the project's roles and blocks; [docs/PROTOCOL.md](docs/PROTOCOL.md) lists where they differ from the reference's.

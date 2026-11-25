@@ -21,7 +21,7 @@ The order of work for the guild, from an empty repository to a kit a project can
 |---|---|---|---|---|
 | 0 | Foundations | Layout (`Guild/`, `layers/lean/`, `layers/lasm/`, a `test` subproject), dependencies pinned and building on this toolchain (leancurl, leansqlite, lean-json, the web stack, Plausible), a dev container with its own Docker engine (the reference's `.devcontainer` shows how), CI, an empty `CHANGELOG.md` | `lake build` and `lake test` in CI; `docker run hello-world` in the dev container | |
 | 1 | The pure core | Facts and states for every unit, obligations and the scheduler, with the patience fix, property 8's attempt counts and the run budget; the theorems in REQUIREMENTS.md, "States and the scheduler" | theorems compile, with standard axioms only; every deliberate difference from `states.py` listed in CHANGELOG | |
-| 2 | The project interface | Configuration types, layer selection, the repository contract, rules that named agents made configuration, protocol assembly (kit, layer and project sections, with placeholders) | the guild's test projects and inkproof-guild's inventory are expressible; human tags `v0.1.0` | inkproof-guild stage 1 (the inventory) |
+| 2 | The project interface | Configuration types, layer selection, the repository contract, rules that named agents made configuration, protocol assembly (kit, kind, layer and project sections, with placeholders) | the guild's test projects and inkproof-guild's inventory are expressible; human tags `v0.1.0` | inkproof-guild stage 1 (the inventory) |
 | 3 | The kit's infrastructure | Compose files, Forgejo, proxies and joined allowlists, CI with its own engine, staged images (base, Lean, Lasm with WebKit), bootstrap and repository setup in shell with push mirrors, the rules resolving GitHub URLs to Forgejo, the two test projects | ported stage 1; mirrors push to a second repository in the test Forgejo, never to GitHub; a test project that mirrors, deployed with mirrors off, bootstraps with no mirror and nothing leaving the test Forgejo; CI fetches a dependency named by GitHub URL from Forgejo | |
 | 4 | The forge adapter | The adapter interface, the Forgejo adapter, a fake forge for unit tests, contract tests against the real Forgejo | contract tests pass against Forgejo and the fake alike | |
 | 5 | The gatekeeper | Webhooks, CI checks, approvals and releases, as the first whole service; the control state it reads | the reference's gatekeeper tests (`test_gatekeeper.py`) ported; ported stage 6, pausing through the control state | |
@@ -43,7 +43,7 @@ After stage 10 the human tags a release that inkproof-guild can switch to. The s
 | # | Done |
 |---|---|
 | 0 | 2026-11-25 |
-| 1 | |
+| 1 | 2026-11-25 |
 | 2 | |
 | 3 | |
 | 4 | |

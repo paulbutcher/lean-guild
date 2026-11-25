@@ -1,0 +1,120 @@
+/-
+Copyright (c) 2026 Paul Butcher. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+-/
+import GuildTests.Projects
+import GuildTests.Fuel
+
+/-! The project interface: configurations, settings, and each agent's assembled instructions. -/
+
+namespace GuildTests.Interface
+
+open Guild GuildTests.Projects
+
+def contains (s part : String) : Bool := (s.splitOn part).length > 1
+
+/-- Every agent's instructions, or the errors assembling them. -/
+def all (p : Project) (t : Protocol.Text) : List (String × Except String String) :=
+  p.config.agents.map (fun a => (a.name, Protocol.assemble p settings t a.name))
+
+def rendersCleanly (p : Project) (t : Protocol.Text) : Bool :=
+  Protocol.check p settings t == [] &&
+    (all p t).all (fun (_, r) => match r with
+      | .ok s => !contains s "{{" && !contains s "}}"
+      | .error _ => false)
+
+def mentions (p : Project) (t : Protocol.Text) (agent word : String) : Bool :=
+  match Protocol.assemble p settings t agent with
+  | .ok s => contains s word
+  | .error _ => false
+
+def reports (errors : List String) (part : String) : Bool := errors.any (contains · part)
+
+def withConfig (p : Project) (f : Config → Config) : Config := f p.config
+
+def editRepo (c : Config) (name : String) (f : Repository → Repository) : Config :=
+  { c with repositories := c.repositories.map (fun r => if r.name == name then f r else r) }
+
+def editAgent (c : Config) (name : String) (f : Agent → Agent) : Config :=
+  { c with agents := c.agents.map (fun a => if a.name == name then f a else a) }
+
+def editRole (t : Protocol.Text) (name : String) (f : String → String) : Protocol.Text :=
+  { t with roles := t.roles.map (fun (n, r) => if n == name then (n, f r) else (n, r)) }
+
+def cases : List (String × Bool) :=
+  [("the plain project's instructions render", rendersCleanly plain plainText),
+   ("the browser project's instructions render", rendersCleanly browser browserText),
+   ("without the Lasm layer, no agent hears of Lasm",
+     (all plain plainText).all (fun (a, _) => !mentions plain plainText a "Lasm")),
+   ("with it, a library's agent does", mentions browser browserText "ui" "under Lasm"),
+   ("a site is told how it is deployed", mentions browser browserText "site" "build-site.sh"),
+   ("an agent that tracks an upstream project is woken for its blocking issues",
+     mentions browser browserText "lasm" "upstream:lasm"),
+   ("imported history is never instructions, only where there is some",
+     mentions browser browserText "ui" "`Ghost`" && !mentions plain plainText "base" "`Ghost`"),
+   ("a project block nothing uses is reported",
+     reports (Protocol.check plain settings { plainText with sections := plainText.sections ++ "@@ nowhere\nlost\n" }) "nowhere"),
+   ("a role block its kind has no room for is reported",
+     reports (Protocol.check plain settings (editRole plainText "base" (· ++ "@@ extra\nlost\n"))) "extra"),
+   ("an agent without a role is reported",
+     reports (Protocol.check plain settings { plainText with roles := plainText.roles.filter (·.1 != "app") }) "app has no role"),
+   ("a dependency on an unlisted repository is an error",
+     reports (editRepo plain.config "testbed-app" fun r => { r with dependsOn := ["testbed-gone"] }).errors "testbed-gone"),
+   ("a library whose recommendations the human decides is an error",
+     reports (editAgent plain.config "base" fun a => { a with humanDecides := true }).errors "base"),
+   ("a site without the Lasm layer is an error",
+     reports (withConfig browser fun c => { c with layers := {} }).errors "needs the Lasm layer"),
+   ("an upstream tracked by no agent is an error",
+     reports (withConfig browser fun c => { c with upstreams := [{ name := "x", title := "X", tracker := some "nobody" }] }).errors "nobody"),
+   ("the coordination repository stays at level 1",
+     reports (editRepo plain.config "testbed-coordination" fun r => { r with level := 3 }).errors "level 1"),
+   ("a repository no agent owns is an error",
+     reports (withConfig plain fun c => { c with repositories := c.repositories ++ [{ name := "testbed-orphan" }] }).errors "no owner"),
+   ("missing settings are named, not defaulted",
+     match Settings.read (fun _ => none) with
+     | .error es => reports es "FORGE_ORG" && reports es "HUMAN_USER" && reports es "FORGE_WEB_URL"
+     | .ok _ => false),
+   ("a malformed mirrors setting is an error",
+     match Settings.read (fun n => if n == "MIRRORS" then some "maybe" else some "x") with
+     | .error es => reports es "MIRRORS"
+     | .ok _ => false),
+   ("mirrors can be turned off",
+     match Settings.read (fun n => if n == "MIRRORS" then some "off" else some "x") with
+     | .ok s => !s.mirrors
+     | .error _ => false),
+   ("the coordination repository needs no CI, API.lock or releases",
+     match plain.config.repository? "testbed-coordination" with
+     | some r => (plain.config.contract r).all (fun q => match q with
+         | .ciWorkflow _ | .apiLock | .changelog | .versionTags => false
+         | _ => true)
+     | none => false),
+   ("a library's code owners give it the level its setup starts it at",
+     match plain.config.repository? "testbed-app" with
+     | some r => (plain.config.contract r).contains (.codeOwners ".forgejo/CODEOWNERS" 3)
+     | none => false),
+   ("the backoff reads as the agents are told it",
+     Protocol.wakes [0, 900, 900] == "at once, then twice more 15 minutes apart" &&
+       Protocol.wakes [300, 3600] == "after 5 minutes, then once more after an hour")]
+
+open Plausible
+
+/-- Text with no tags is left as it is. A proof would have to follow the tokenizer through
+`splitOn`, whose lemmas don't yet say enough about strings without the separator. -/
+def plainTextUnchanged (s : String) : Bool :=
+  let s := s.replace "{" "("
+  match Template.render { vars := [], flags := [], inserts := [] } s with
+  | .ok (out, _) => out == s
+  | .error _ => false
+
+def check : IO Bool := do
+  let mut ok := true
+  for (name, passed) in cases do
+    unless passed do
+      IO.eprintln s!"Interface: {name}"
+      ok := false
+  let r ← Fuel.checkIO (∀ s, plainTextUnchanged s = true) { numInst := 500 }
+  match r with
+  | .success _ => pure ok
+  | _ => IO.eprintln s!"Interface: plain text: {r}"; pure false
+
+end GuildTests.Interface

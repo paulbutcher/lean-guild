@@ -5,5 +5,5 @@ Released under Apache 2.0 license as described in the file LICENSE.
 import GuildTests
 
 def main : IO UInt32 := do
-  let ok ← GuildTests.Fuel.check
-  pure (if ok then 0 else 1)
+  let results := [← GuildTests.Fuel.check, ← GuildTests.Interface.check]
+  pure (if results.all id then 0 else 1)

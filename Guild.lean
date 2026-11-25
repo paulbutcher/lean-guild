@@ -14,6 +14,10 @@ import Guild.Core.Waits
 import Guild.Core.Rerun
 import Guild.Core.Budget
 import Guild.Core.Version
+import Guild.Config
+import Guild.Settings
+import Guild.Template
+import Guild.Protocol
 -- Dependencies the kit will use, so that `lake build` proves each builds on this toolchain.
 import Leancurl
 import SQLite

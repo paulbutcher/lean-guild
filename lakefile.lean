@@ -19,8 +19,21 @@ require «routing-std» from git "https://github.com/paulbutcher/lean-routing" @
 require middleware from git "https://github.com/paulbutcher/lean-middleware" @ "v0.22.1"
 require «middleware-cookiestore» from git "https://github.com/paulbutcher/lean-middleware" @ "v0.22.1" / "cookiestore"
 
+input_dir protocolText where
+  path := "Guild/Protocol"
+  text := true
+
+input_dir leanLayer where
+  path := "layers/lean"
+  text := true
+
+input_dir lasmLayer where
+  path := "layers/lasm"
+  text := true
+
 @[default_target]
-lean_lib Guild
+lean_lib Guild where
+  needs := #[protocolText, leanLayer, lasmLayer]
 
 @[test_driver]
 script tests do
