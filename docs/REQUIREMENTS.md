@@ -29,7 +29,7 @@ The guild is a kit that runs a team of Claude Code agents on a Lean project thro
 ## The project interface
 
 - A consuming project is a Lake package that requires `guild` at a release tag and builds the kit's executables with its configuration.
-- Static configuration is Lean values of the guild's types, checked when the project compiles: agents and their kinds, repositories (an explicit list, not a prefix), dependencies between them, reviewers, upstream projects and the agents that track them, autonomy levels, bounds, layers, and the forge mode. A reviewer that names no agent, or a dependency on an unlisted repository, is a compile error.
+- Static configuration is Lean values of the guild's types, checked when the project compiles: agents and their kinds, repositories (an explicit list, not a prefix), dependencies between them, reviewers, upstream projects and the agents that track them, autonomy levels, bounds, layers, and the forge mode, with the GitHub owner, its former owners and the mirrors' branch filter where it mirrors. A reviewer that names no agent, or a dependency on an unlisted repository, is a compile error.
 - Deployment settings and secrets (ports, paths, tokens, the human's account) are read from the environment at run time, never compiled in.
 - Text the project supplies (roles, protocol sections, `REQUIREMENTS.md`, `PRIOR-ART.md`) stays as files. A module that embeds one with `include_str` declares it as a Lake `input_file` with `text := true` and lists it in the library's `needs`, or edits to it rebuild nothing.
 - The reference's rules that name agents become configuration (`generic-specific-split.md`, seam 4), and its repository contract becomes explicit (seam 13).
@@ -59,8 +59,8 @@ The guild is a kit that runs a team of Claude Code agents on a Lean project thro
 
 - One adapter per forge, chosen by configuration, behind everything the kit does through a forge: API calls (over leancurl), the agents' `forge` command, identities, protection, CI and webhooks (`generic-specific-split.md`, seam 12). Forgejo first, with no change in behaviour; GitHub second.
 - Load stays at or below the reference's after its fixes: webhooks rather than polling, an item cache validated by `updated_at`, CI flags marked by events, and a reconciliation sweep. The reference measured about 1,070 to 1,750 requests an hour.
-- Two GitHub modes: work on GitHub with no Forgejo, and import into Forgejo with a mirror to GitHub (the reference's `migrate.sh` and `mirrors.sh`). On GitHub: GitHub Apps rather than machine users, one serial client per installation, conditional requests, and webhooks with a sweep (`github-forge-research.md`).
-- Adoption: an existing project whose repositories are all owned by one GitHub account can be adopted, and takes on the kit's conventions through onboarding pull requests. Moving it to an organisation is a last resort.
+- Forgejo mode keeps the reference's push mirrors to GitHub (`mirrors.sh`): one for every configured repository, new ones included, carrying the branch filter and every tag, with a token from the secrets that can be rotated, and each mirror's last sync and error shown. Agents and CI fetch the project's repositories from Forgejo when a lakefile names them by GitHub URL, under the current owner or a former one, by a rule per repository.
+- GitHub mode works on GitHub with no Forgejo: GitHub Apps rather than machine users, one serial client per installation, conditional requests, and webhooks with a sweep (`github-forge-research.md`). An existing project whose repositories one GitHub account owns can be adopted in either mode, imported into Forgejo as the reference's `migrate.sh` does, and takes on the kit's conventions through onboarding pull requests; moving it to an organisation is a last resort.
 - Outsiders may file issues only. Their pull requests are closed with a note asking for an issue, and no CI runs on them.
 
 ## Images, CI and browsers
