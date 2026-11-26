@@ -3,7 +3,7 @@
 # Released under Apache 2.0 license as described in the file LICENSE.
 
 # Admin tasks against Forgejo, run in the tools container by the kit's scripts.
-#   kit init-secrets   generate the runner and webhook secrets, if missing
+#   kit init-secrets   generate the runner, webhook and web UI secrets, if missing
 #   kit check-human    succeed if secrets/human/token is a working admin token
 #   kit bootstrap      converge the organisation, repositories, accounts, tokens, teams,
 #                      webhooks and mirrors
@@ -32,6 +32,9 @@ cmd_init_secrets() {
   # that carry it.
   secret_file gatekeeper/coordinator-key 32
   secret_file gatekeeper/webhook-secret 32
+  # The human signs in to the web UI with this; the other seals its session cookies.
+  secret_file ui/key 32
+  secret_file ui/session-key 32
   # Each agent's runner proves who it is to the dispatcher with its own key.
   local name
   for name in $(cut -f1 /etc/kit/agents.tsv); do

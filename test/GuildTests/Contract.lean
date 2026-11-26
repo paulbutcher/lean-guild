@@ -165,6 +165,17 @@ def scheduledStuck (e : Env) : T Unit := do
   let r ← mergeNow e n
   ensure (r == .merged) s!"merging directly instead gave {repr r}"
 
+def narrowedMergers (e : Env) : T Unit := do
+  let (n, sha) ← openPull e "mergers"
+  lift (e.setStatus sha .success)
+  lift (e.reviewer.review e.repo n .approve "fine" sha)
+  lift (e.admin.mergers e.repo (some [e.admin.account]))
+  let r ← mergeNow e n
+  ensure (r != .merged) "a writer merged past a list of mergers that leaves them out"
+  lift (e.admin.mergers e.repo none)
+  let r ← mergeNow e n
+  ensure (r == .merged) s!"with the list restored, merging gave {repr r}"
+
 def failingWorkflow : String :=
   "on: [push]\njobs:\n  fail:\n    runs-on: docker\n    steps:\n      - run: exit 1\n"
 
@@ -200,6 +211,7 @@ def checks : List (String × (Env → T Unit)) :=
    ("approvers are listed as requested; the timeline says who was asked", requestedReviewers),
    ("a merge scheduled while CI runs fires when it passes", scheduledFires),
    ("a merge scheduled once everything passed never fires", scheduledStuck),
+   ("only the listed mergers merge, until the list is lifted", narrowedMergers),
    ("re-runs are counted from the forge", reruns)]
 
 /-- Runs every check against a forge with a `main` branch, printing each result. -/

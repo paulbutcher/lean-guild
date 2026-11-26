@@ -24,7 +24,8 @@ public def main (args : List String) : IO UInt32 := do
       dispatcher := { url := ← opt "DISPATCHER_URL" "http://dispatcher:8080",
                       keyFile := ← opt "RUNNER_KEY_FILE" "/run/secrets/runner_key" },
       maxMinutes := (← opt "MAX_RUN_MINUTES" "240").toNat?.getD 240,
-      tick := (← opt "RUNNER_TICK_SECONDS" "15").toNat?.getD 15 }
+      tick := (← opt "RUNNER_TICK_SECONDS" "15").toNat?.getD 15,
+      control := ← opt "CONTROL_DIR" "/etc/guild/control" }
   match args with
   | [] => loop e; return 0
   | ["stop"] =>

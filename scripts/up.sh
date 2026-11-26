@@ -2,13 +2,15 @@
 # Copyright (c) 2026 Paul Butcher. All rights reserved.
 # Released under Apache 2.0 license as described in the file LICENSE.
 
-# Build and start Forgejo, CI, the proxies, the dispatcher and the gatekeeper. Safe to re-run.
+# Build and start Forgejo, CI, the proxies, the dispatcher, the gatekeeper and the web UI. Safe to
+# re-run.
 set -euo pipefail
 . "$(dirname "$0")/lib.sh"
 confirm "This builds the kit's images and starts or recreates its containers"
 # Mounted into containers; must exist before Docker creates them as root.
 mkdir -p "$STATE_DIR/secrets/ci" "$STATE_DIR/secrets/dispatcher" "$STATE_DIR/secrets/gatekeeper" \
-  "$STATE_DIR/secrets/github" "$STATE_DIR/secrets/runner-keys" "$STATE_DIR/secrets/claude" "$STATE_DIR/control" \
+  "$STATE_DIR/secrets/github" "$STATE_DIR/secrets/runner-keys" "$STATE_DIR/secrets/claude" "$STATE_DIR/secrets/ui" \
+  "$STATE_DIR/secrets/human" "$STATE_DIR/control" \
   "$STATE_DIR/proxy"
 # Extra domains for Forgejo's proxy: empty except while an import runs.
 [ -e "$STATE_DIR/proxy/domains.txt" ] || : > "$STATE_DIR/proxy/domains.txt"
@@ -19,11 +21,11 @@ docker compose --profile build build kit-build
 images="agent-base agent-lean ci-lean"
 [ "$TOP_LAYER" = lasm ] && images="$images agent-lasm ci-lasm"
 docker compose --profile build build $images
-docker compose build gatekeeper dispatcher
+docker compose build gatekeeper dispatcher ui
 docker compose --profile tools build tools
 docker tag "$COMPOSE_PROJECT_NAME-ci-$TOP_LAYER:1" "$CI_IMAGE"
 tools init-secrets
-docker compose up -d --remove-orphans forgejo ports proxy ci-proxy forge-proxy dispatcher ci-docker gatekeeper
+docker compose up -d --remove-orphans forgejo ports proxy ci-proxy forge-proxy dispatcher ci-docker gatekeeper ui
 
 printf 'Waiting for Forgejo'
 i=0
@@ -74,3 +76,4 @@ fi
 
 docker compose ps
 echo "Forgejo: http://localhost:${FORGE_PORT:-3000}/"
+echo "The web UI: http://localhost:${UI_PORT:-3002}/, signing in with the key in $STATE_DIR/secrets/ui/key"

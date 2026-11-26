@@ -72,7 +72,7 @@ def envAt (dir : System.FilePath) (claude : String) : IO Guild.Agent.Runner.Env 
   return { agent := "lib-owner", claude, workspace := dir / "workspace", state := dir / "state",
            logs := dir / "workspace" / ".guild", archive := dir / "archive", claudeDir := dir / "claude-config",
            dispatcher := { url := s!"http://127.0.0.1:{port}", keyFile := dir / "runner-key" },
-           maxMinutes := 5, tick := 1 }
+           maxMinutes := 5, tick := 1, control := dir / "control" }
 
 def ended (seen : Array (String × String)) : Option Json :=
   (seen.toList.find? (·.1.endsWith "/end")).bind fun (_, b) => (parse b).toOption
@@ -102,6 +102,16 @@ def runCases (seen : IO.Ref (Array (String × String))) : List (String × T Unit
       seen.set #[]
       let stopper ← IO.asTask do IO.sleep 2000; IO.FS.writeFile (dir / "state" / "stop-run") ""
       run e 8 ["a long one"]
+      discard <| IO.wait stopper
+      let some r := ended (← seen.get) | throw "no report"
+      ensure ((r.getObjVal? "outcome").toOption == some (toJson "interrupted")) r.compress),
+   ("a run stops when the web UI asks, by its id", do
+      let dir := (← IO.currentDir) / ".lake" / "runner-test" / toString (← IO.monoNanosNow)
+      IO.FS.createDirAll (dir / "control")
+      let e ← envAt dir (← stub dir (dir / "claude-config") true).toString
+      seen.set #[]
+      let stopper ← IO.asTask do IO.sleep 2000; IO.FS.writeFile (dir / "control" / "stop-run-9") ""
+      run e 9 ["a long one"]
       discard <| IO.wait stopper
       let some r := ended (← seen.get) | throw "no report"
       ensure ((r.getObjVal? "outcome").toOption == some (toJson "interrupted")) r.compress),

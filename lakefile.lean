@@ -42,9 +42,13 @@ input_dir kitProxy where
   path := "docker/proxy"
   text := true
 
+input_file uiScript where
+  path := "Guild/Ui/notify.js"
+  text := true
+
 @[default_target]
 lean_lib Guild where
-  needs := #[protocolText, leanLayer, lasmLayer, kitTemplates, kitProxy]
+  needs := #[protocolText, leanLayer, lasmLayer, kitTemplates, kitProxy, uiScript]
 
 @[test_driver]
 script tests do
@@ -71,3 +75,7 @@ lean_exe «guild-runner» where
 /-- The dispatcher: who is woken for what, the run ledger, and what the human's pages show. -/
 lean_exe «guild-dispatcher» where
   root := `Guild.Dispatcher.Main
+
+/-- The human's web UI. -/
+lean_exe «guild-ui» where
+  root := `Guild.Ui.Main

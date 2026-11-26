@@ -15,10 +15,16 @@ A project builds a kit executable from its configuration and text (`def main := 
 - Timings: `GATEKEEPER_SWEEP_SECONDS` (900) is how often the gatekeeper looks at every open pull request, in case it missed a webhook; the dispatcher's keep the reference's names and defaults (`DEBOUNCE_SECONDS`, `RECONCILE_SECONDS`, `IDLE_SECONDS` and the rest, listed in `compose.yaml`). `DISPATCHER_PORT` (3001) publishes its status JSON on localhost.
 - Agents start only once `secrets/claude/oauth-token` holds a token from `claude setup-token`.
 
+## The web UI
+
+- It is at `http://localhost:$UI_PORT/` (3002), published on localhost only, on no network an agent is on. Sign in with the key in `secrets/ui/key`, which `scripts/up.sh` makes.
+- It shows the kit, agents, notices, activity and reviews, and pauses, drains and resumes the kit, stops and starts agents, stops runs and marks notices seen. Each page answers with its data as JSON when asked for `application/json`.
+- Pause and resume cancel and remake scheduled merges in the human's name, with `secrets/human/token`, as the reference's scripts did.
+
 ## Scripts
 
 - `scripts/up.sh` builds the images up to the configuration's top layer (Lasm if it has it, else Lean) and the kit's own executables, and starts the kit; `scripts/down.sh` stops it.
 - `scripts/bootstrap.sh` makes the human's account, then everything the configuration names: repositories, agents, teams, webhooks, labels and mirrors. It is idempotent; its last line is the number of changes made.
 - `scripts/setup-repo.sh [REPOSITORY LEVEL]` applies an autonomy level, or each repository's starting level; run it after a repository's first push, since it protects `main`. It exits 3 when it has opened a pull request with files the level needs.
 - `scripts/mirrors.sh [--rotate | --status]` converges push mirrors, rotates their token from `secrets/github/mirror-token`, or shows their last sync.
-- `test/stages/stage3.sh` deploys the test projects in the dev container's engine and checks the networks, CI, permissions and mirrors; `test/stages/stage4.sh` runs the forge contract tests against a fresh deployment, as `lake test` runs them against the fake; `test/stages/stage5.sh` runs the gatekeeper through the reference's level 2 checks and a release; `test/stages/stage6.sh` runs the agents' tools in their own image against the forge; `test/stages/stage7.sh` runs the dispatcher, with its runners stood in for over HTTP; `test/stages/runs.sh` runs it with real Claude runs, given a token from `claude setup-token` in `./token`; `test/stages/switch.sh` replaces the reference kit with the guild and back.
+- `test/stages/stage3.sh` deploys the test projects in the dev container's engine and checks the networks, CI, permissions and mirrors; `test/stages/stage4.sh` runs the forge contract tests against a fresh deployment, as `lake test` runs them against the fake; `test/stages/stage5.sh` runs the gatekeeper through the reference's level 2 checks and a release; `test/stages/stage6.sh` runs the agents' tools in their own image against the forge; `test/stages/stage7.sh` runs the dispatcher, with its runners stood in for over HTTP; `test/stages/stage8.sh` runs the reference's stage 4 checks through the web UI; `test/stages/runs.sh` runs the dispatcher with real Claude runs, given a token from `claude setup-token` in `./token`; `test/stages/switch.sh` replaces the reference kit with the guild and back.

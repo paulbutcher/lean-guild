@@ -15,10 +15,11 @@ WORKDIR /kit
 COPY lean-toolchain lakefile.lean lake-manifest.json ./
 RUN curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
     | sh -s -- -y --no-modify-path --default-toolchain "$(cat lean-toolchain)"
-RUN lake build Json JsonDeriving Leancurl Leancrypto RoutingStd SQLite.LowLevel
+RUN lake build Json JsonDeriving Leancurl Leancrypto RoutingStd SQLite.LowLevel Middleware MiddlewareCookieStore Htmx Css
 COPY . .
-RUN lake build guild-gatekeeper guild-dispatcher forge guild-hook guild-runner \
+RUN lake build guild-gatekeeper guild-dispatcher guild-ui forge guild-hook guild-runner \
  && mkdir -p /out \
- && cp .lake/build/bin/guild-gatekeeper .lake/build/bin/guild-dispatcher .lake/build/bin/forge \
+ && cp .lake/build/bin/guild-gatekeeper .lake/build/bin/guild-dispatcher .lake/build/bin/guild-ui .lake/build/bin/forge \
       .lake/build/bin/guild-hook .lake/build/bin/guild-runner /out/ \
- && cp "$(find .lake -name libleancurl_shim.so | head -1)" /out/
+ && cp "$(find .lake -name libleancurl_shim.so | head -1)" /out/ \
+ && cp "$(find .lake -name libcrypto_shim.so | head -1)" /out/

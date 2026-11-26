@@ -19,6 +19,8 @@ structure Protection where
   /-- Whose approvals count. -/
   approvers : List String
   contexts : List String
+  /-- With `some`, only these accounts may merge. -/
+  mergers : Option (List String) := none
 
 structure PullPart where
   head : String
@@ -332,6 +334,8 @@ def as (ref : IO.Ref World) (who : String) : Forge where
     if schedule then
       setRepo (setItem r (note { i with pull := some { p with scheduled := true } } who time .scheduleMerge))
       return .scheduled
+    if r.protection.any (·.mergers.any (!·.contains who)) then
+      return .refused "you are not allowed to merge this pull request"
     if allowed r i p then
       setRepo (← doMerge r i p who time)
       return .merged
@@ -342,6 +346,9 @@ def as (ref : IO.Ref World) (who : String) : Forge where
     let p ← pullOf i
     let time ← tick
     setRepo (setItem r (note { i with pull := some { p with scheduled := false } } who time .cancelScheduledMerge))
+  mergers repo who' := run ref do
+    let r ← repoOf repo
+    setRepo { r with protection := r.protection.map ({ · with mergers := who' }) }
   rerun repo id := run ref do
     let r ← repoOf repo
     unless ← canWrite who r do fail 403 "you may not re-run"

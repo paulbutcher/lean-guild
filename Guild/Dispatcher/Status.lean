@@ -53,6 +53,10 @@ def refreshCi (every := false) : D Unit := do
 def ciRunning : D Bool := withCaches fun c => do
   return !(← c.ciMarked.get).isEmpty || !(← c.ciBusy.get).isEmpty
 
+/-- The repositories where CI may be running: marked by a webhook, or found busy. -/
+def ciRepos : D (List String) := withCaches fun c => do
+  return (((← c.ciMarked.get).toList.map (·.1)) ++ (← c.ciBusy.get)).eraseDups.mergeSort (· ≤ ·)
+
 /-- What a clean stop waits for: runs not yet ended, and CI. -/
 def underWay : D (List String) := do
   let runs ← q "SELECT id, agent FROM runs WHERE ended IS NULL ORDER BY id"
@@ -192,13 +196,61 @@ def status : D Json := do
     ("reconciled", match reconciled.bind parseFloat? with | some t => toJson (Time.iso t) | none => .null),
     ("stopped", toJson (← e.agents.filterMapM fun a => do return if ← stopped a.name then some a.name else none)),
     ("waiting_on_you", toJson (← waitingForHuman)),
+    ("ci", toJson (← ciRepos)),
     ("agents", Json.mkObj agents),
     ("runs", Json.arr (runs.map (rowJson · ["claimed", "started", "ended"] ["triggers", "denied"]))),
     ("sessions", Json.arr (sessions.map (rowJson · ["started", "ended"]))),
-    ("notices", Json.arr (notices.map (rowJson · ["at"]))),
+    ("notices", Json.arr (notices.map (rowJson · ["at", "seen"]))),
     ("obligations", Json.arr (obligations.map (rowJson · ["since", "next_at"]))),
     ("units", Json.arr (units.map (rowJson · ["since"] ["holders"]))),
     ("summary", toJson (← kitSummary))]
+
+/-- The human has seen notice `id`, if there is one. Seeing a run budget's notice starts its unit's
+count again. -/
+def markSeen (id : Nat) : D Bool := do
+  let some n := (← q "SELECT key, kind FROM notices WHERE id=?" [id])[0]? | return false
+  let t ← now
+  exec "UPDATE notices SET seen=? WHERE id=? AND seen IS NULL" [t, id]
+  -- Its key is `budget:<unit>:<when the count last started>`.
+  if n.str "kind" == "budget" then
+    let parts := ((n.str "key").dropPrefix "budget:").toString.splitOn ":"
+    let unit := ":".intercalate parts.dropLast
+    unless unit.isEmpty do kvSet s!"budget-seen:{unit}" (toString t)
+  return true
+
+/-- The reviews the dispatcher has read, from its item cache alone like the rest of the status:
+each pull request's, updated in the last `days`, with their verdicts; each milestone's reports;
+and each recommendation, with what became of it. -/
+def reviews (days : Nat) : D Json := do
+  let e ← read
+  let t ← now
+  let items ← withCaches fun c => do return (← c.items.get).toList
+  let recent (r : ItemRead) := t - Time.when r.issue.updatedAt ≤ days.toFloat * 86400
+  let byUpdate := (items.filter (recent ·.2)).mergeSort fun a b => a.2.issue.updatedAt ≥ b.2.issue.updatedAt
+  let verdict : Forge.Verdict → String
+    | .approve => "approved" | .requestChanges => "changes requested" | .comment => "commented"
+    | .other v => v
+  let pulls := byUpdate.filter (fun (_, r) => r.pull.isSome && !r.reviews.isEmpty) |>.map fun (unit, r) =>
+    Json.mkObj [("unit", toJson unit), ("title", toJson r.issue.title), ("author", toJson r.issue.author),
+      ("open", toJson r.issue.isOpen),
+      ("reviews", toJson (r.reviews.map fun (v : Forge.Review) => Json.mkObj [("by", toJson v.author),
+        ("verdict", toJson (verdict v.verdict)), ("at", toJson v.submittedAt),
+        ("current", toJson (!v.stale && !v.dismissed))]))]
+  let milestones := byUpdate.filter (fun (unit, r) =>
+      unit.startsWith s!"{e.coordination}#" && r.issue.labels.contains "milestone-review") |>.map fun (unit, r) =>
+    Json.mkObj [("unit", toJson unit), ("title", toJson r.issue.title), ("open", toJson r.issue.isOpen),
+      ("reports", toJson (r.timeline.filterMap fun (en : Forge.Entry) => match en.event with
+        | Forge.Event.comment .. => if e.milestoneReviewers.contains en.actor then
+            some (Json.mkObj [("by", toJson en.actor), ("at", toJson en.time)]) else none
+        | _ => none))]
+  let recommendations := byUpdate.filter (·.2.issue.labels.contains "recommendation") |>.map fun (unit, r) =>
+    let by_ := (r.issue.labels.find? (fun (l : String) => l.startsWith "review:")).map fun (l : String) => (l.drop 7).toString
+    let outcome := if r.issue.isOpen then "open"
+      else if r.issue.labels.contains "declined" then "declined" else "accepted"
+    Json.mkObj [("unit", toJson unit), ("title", toJson r.issue.title), ("review", toJson by_),
+      ("outcome", toJson outcome)]
+  return Json.mkObj [("days", toJson days), ("pulls", toJson pulls), ("milestones", toJson milestones),
+    ("recommendations", toJson recommendations)]
 
 /-- One notice per line: id, kind, where, text, with tabs and newlines removed. -/
 def noticesText (after : Nat) : D String := do

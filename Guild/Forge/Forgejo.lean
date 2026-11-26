@@ -532,6 +532,12 @@ def connect (c : Conn) : Forge where
       | _ => .refused (message text)
   cancelMerge repo n := do
     discard <| write c .delete (repoPath c repo ++ s!"/pulls/{n}/merge") none [204]
+  mergers repo who := do
+    let path := repoPath c repo ++ "/branch_protections/main"
+    if (← find c Json path).isNone then return
+    let body := Json.mkObj [("enable_merge_whitelist", toJson who.isSome),
+      ("merge_whitelist_usernames", toJson (who.getD []))]
+    discard <| write c .patch path body [200]
   rerun repo run := do
     discard <| write c .post (repoPath c repo ++ s!"/actions/runs/{run}/rerun") none [200, 201, 204]
   createRelease repo r := do

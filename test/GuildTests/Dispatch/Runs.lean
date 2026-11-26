@@ -461,7 +461,7 @@ def additions : List (String × (T → Check)) := [
     same (← t.io (agentState "core")) "stopped"
     IO.FS.removeFile (t.control / "stopped-core")
     ensure (← t.io (claim "core")).isSome "claimed once started"),
-  ("the run budget tells the human once, until the notice is seen", fun _ => do
+  ("the run budget tells the human once, until they mark the notice seen", fun _ => do
     let t ← T.new { config with bounds := { config.bounds with runBudget := 2 } }
     t.issue core 1 "scale" ["request", "new"]
     let cycle : Check := do
@@ -477,7 +477,8 @@ def additions : List (String × (T → Check)) := [
     cycle
     same ((← t.io (q "SELECT kind FROM notices WHERE kind='budget'")).size) 1 "the second run reaches it"
     ensure ((← t.commentsOn core 1).any (has · "the run budget")) "the human is told on the item"
-    t.io (kvSet s!"budget-seen:{core}#1" (toString (← t.env.now)))
+    let some n := (← t.io (q "SELECT id FROM notices WHERE kind='budget'"))[0]? | throw "no budget notice"
+    ensure (← t.io (markSeen (n.nat "id"))) "marking the notice seen didn't find it"
     t.pass 1000
     t.wakeDue
     cycle

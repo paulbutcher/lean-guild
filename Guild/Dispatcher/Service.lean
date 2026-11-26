@@ -13,9 +13,10 @@ public import RoutingStd
 * `POST /hook`: the forge's webhooks, signed with the webhook secret.
 * `POST /claim`, `/runs/<id>/start`, `/runs/<id>/end`, `/runs/abandon`, `/sessions`: the agents'
   runners, each with its runner key as a bearer token.
-* `POST /admin/drop`, `/admin/reconcile`: the human's scripts, with the admin key.
-* `GET /status`, `/activity`, `/notices.txt`, `/healthz`: for the human's pages; `/ledger` for the
-  supervisor and the milestone reviewers.
+* `POST /admin/drop`, `/admin/reconcile`, `/admin/notices/<id>/seen`: the human's web UI and
+  scripts, with the admin key.
+* `GET /status`, `/activity`, `/reviews`, `/notices.txt`, `/healthz`: for the human's pages;
+  `/ledger` for the supervisor and the milestone reviewers.
 
 Every minute it closes runs no runner started, moves obligations on, checks CI where a webhook
 marked it, and checks for a quiet kit; every `reconcile` seconds it sweeps; every few seconds it
@@ -225,6 +226,8 @@ route_table Routes
     sessions := "/sessions",
     drop := "/admin/drop",
     reconcile := "/admin/reconcile",
+    seen := "/admin/notices/:id:Nat/seen",
+    reviews := "/reviews",
     status := "/status",
     activity := "/activity",
     notices := "/notices.txt",
@@ -241,11 +244,15 @@ def app (e : Env) (keys : Keys) : StatelessHandler .std :=
       .post Routes.patterns.sessions (onSession e),
       .post Routes.patterns.drop (onDrop e keys),
       .post Routes.patterns.reconcile (onReconcile e keys),
+      .post Routes.patterns.seen (fun id req => asAdmin e keys req fun _ => do
+        return if ← markSeen id then reply .ok (Json.mkObj []) else errorReply .notFound "no such notice"),
       .get Routes.patterns.status (fun _ => act e "/status" do return reply .ok (← status)),
       .get Routes.patterns.activity (fun req => act e "/activity" do
         let after := ((queryParam req "after").bind parseFloat?).getD 0
         let limit := ((queryParam req "limit").bind String.toNat?).getD 40
         return reply .ok (← activity after limit)),
+      .get Routes.patterns.reviews (fun req => act e "/reviews" do
+        return reply .ok (← reviews (((queryParam req "days").bind String.toNat?).getD 7))),
       .get Routes.patterns.notices (fun req => act e "/notices.txt" do
         return replyText (← noticesText (((queryParam req "after").bind String.toNat?).getD 0))),
       .get Routes.patterns.ledger (onLedger e) ]

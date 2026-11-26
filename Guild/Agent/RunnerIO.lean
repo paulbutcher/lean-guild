@@ -9,8 +9,8 @@ public import Guild.Agent.Env
 
 /-! `guild-runner`, which the container's entry point runs for the life of the container, and
 `guild-runner stop`, which interrupts the current run. Besides the agent's own settings it reads
-`AGENT_WORKSPACE`, `DISPATCHER_URL`, `RUNNER_KEY_FILE`, `MAX_RUN_MINUTES`, `RUNNER_TICK_SECONDS`, `CLAUDE_BIN`
-and `CLAUDE_CONFIG_DIR`. -/
+`AGENT_WORKSPACE`, `DISPATCHER_URL`, `RUNNER_KEY_FILE`, `MAX_RUN_MINUTES`, `RUNNER_TICK_SECONDS`, `CLAUDE_BIN`,
+`CLAUDE_CONFIG_DIR` and `CONTROL_DIR`. -/
 
 @[expose] public section
 
@@ -32,6 +32,8 @@ structure Env where
   dispatcher : Dispatcher
   maxMinutes : Nat
   tick : Nat
+  /-- The human's brakes, where the web UI asks for a run to stop. -/
+  control : System.FilePath := "/etc/guild/control"
 
 def log (m : String) : IO Unit := do
   let err ← IO.getStderr
@@ -124,7 +126,7 @@ def run (e : Env) (id : Nat) (triggers : List String) : IO Unit := do
   let timedOut ← IO.mkRef false
   let interrupted ← IO.mkRef false
   let started ← IO.monoMsNow
-  -- Watches for the time limit and for `guild-runner stop`.
+  -- Watches for the time limit, for `guild-runner stop`, and for the web UI's request to stop this run.
   let watcher ← IO.asTask do
     repeat
       if ← done.get then break
@@ -133,6 +135,8 @@ def run (e : Env) (id : Nat) (triggers : List String) : IO Unit := do
       if ← (stopFile e).pathExists then
         IO.FS.removeFile (stopFile e)
         interrupted.set true; log "interrupting the run"; interrupt child.pid; break
+      if ← (e.control / s!"stop-run-{id}").pathExists then
+        interrupted.set true; log "interrupting the run, as the human asked"; interrupt child.pid; break
       IO.sleep 1000
   let mut result : Option Json := none
   repeat

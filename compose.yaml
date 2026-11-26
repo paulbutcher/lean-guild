@@ -86,11 +86,12 @@ services:
   ports:
     build: ./docker/ports
     restart: unless-stopped
-    command: ["sh", "-c", "socat TCP-LISTEN:3001,fork,reuseaddr TCP:dispatcher:8080 & exec socat TCP-LISTEN:3000,fork,reuseaddr TCP:forgejo:3000"]
+    command: ["sh", "-c", "socat TCP-LISTEN:3001,fork,reuseaddr TCP:dispatcher:8080 & socat TCP-LISTEN:3002,fork,reuseaddr TCP:ui:8080 & exec socat TCP-LISTEN:3000,fork,reuseaddr TCP:forgejo:3000"]
     networks: [publish, forge-web]
     ports:
       - "127.0.0.1:${FORGE_PORT:-3000}:3000"
       - "127.0.0.1:${DISPATCHER_PORT:-3001}:3001"
+      - "127.0.0.1:${UI_PORT:-3002}:3002"
 
   # Egress for agents.
   proxy:
@@ -231,6 +232,33 @@ services:
       - ${STATE_DIR:-.}/control:/control:ro
       - ${KIT_CONFIG:?}/config.json:/etc/guild/config.json:ro
       - dispatcher-state:/state
+
+  # The human's web UI, at 127.0.0.1:UI_PORT on the host. It is on no network an agent is on, and
+  # reads what it shows from the dispatcher. It holds the human's token to cancel and remake
+  # scheduled merges on pause and resume, and waits for it, as bootstrap makes it.
+  ui:
+    build:
+      context: ./docker/ui
+      additional_contexts: { build: "docker-image://${COMPOSE_PROJECT_NAME:-guild}-kit-build:1" }
+    image: ${COMPOSE_PROJECT_NAME:-guild}-ui:1
+    restart: unless-stopped
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    networks: [forge-web]
+    depends_on: [dispatcher]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      FORGE_URL: http://forgejo:3000
+      FORGE_WEB_URL: ${FORGE_WEB_URL:-http://localhost:${FORGE_PORT:-3000}}
+      FORGE_ORG: ${FORGE_ORG:?set FORGE_ORG}
+      HUMAN_USER: ${HUMAN_USER:?set HUMAN_USER}
+      DISPATCHER_URL: http://dispatcher:8080
+    volumes:
+      - ${STATE_DIR:-.}/secrets/ui:/run/secrets/ui:ro
+      - ${STATE_DIR:-.}/secrets/human:/run/secrets/human:ro
+      - ${STATE_DIR:-.}/secrets/dispatcher/admin-key:/run/secrets/dispatcher/admin-key:ro
+      - ${STATE_DIR:-.}/control:/control
+      - ${KIT_CONFIG:?}/config.json:/etc/guild/config.json:ro
 
   # The kit's executables, built once for the images that run them.
   kit-build:

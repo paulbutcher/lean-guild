@@ -81,7 +81,9 @@ def additions : List String :=
    "triggers ADD COLUMN env_held INTEGER NOT NULL DEFAULT 0",
    -- Runs of its busy agent a quiet obligation has let go ahead of it, and since when it waits.
    "obligations ADD COLUMN waited INTEGER NOT NULL DEFAULT 0",
-   "obligations ADD COLUMN waited_since REAL"]
+   "obligations ADD COLUMN waited_since REAL",
+   -- When the human marked a notice seen.
+   "notices ADD COLUMN seen REAL"]
 
 /-- The ledger at `path`, made or brought up to date. -/
 def openLedger (path : System.FilePath) : IO Db := do

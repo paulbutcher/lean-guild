@@ -304,6 +304,9 @@ structure Forge where
   /-- A squash merge that deletes its branch, or with `schedule`, one when checks succeed. -/
   merge : Repo → Nat → (schedule : Bool) → M MergeResult
   cancelMerge : Repo → Nat → M Unit
+  /-- Who may merge into a protected `main`: only the accounts named, or with `none`, whoever its
+  protection otherwise lets. Nothing for an unprotected `main`. -/
+  mergers : Repo → Option (List String) → M Unit
   rerun : Repo → (run : Nat) → M Unit
   /-- The release's web page. -/
   createRelease : Repo → NewRelease → M String
