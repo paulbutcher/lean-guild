@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.9.0
+
+- The randomised world test runs in `lake test`: Plausible worlds from the forge's data model, the real dispatcher and simulated agents, checking that the kit never goes quiet with unowed work, never wakes an agent for what it can't change, and never re-runs a head past the limit.
+- A comment made only of `Blocked-by:`, `Waiting-on:` or `Released in` lines wakes no one by itself.
+- Whether work is unreleased comes from the release, a tag at main's head included, rather than from the `ready-for-release` label, which the coordination repository ignores.
+- An item's newest comment with `Blocked-by:` lines replaces earlier comments' lines, and `Blocked-by: none` clears them, so no fix needs a comment edited.
+- A loop's wake names each item and links each line, and a blocker that is released but open is named with what to do.
+- The re-run refusal and the CI failing wake say when the head was re-run and what failed again.
+- A run's re-runs and releases count as forge changes in the ledger.
+- An outsider's pull request can be moved on by its owner's reply.
+
 ## v0.8.0
 
 - Backups and restores: `scripts/backup.sh`, `restore.sh`, `restore-test.sh`, which checks a backup in a throwaway Forgejo, and `backup-install.sh` for a daily job.
