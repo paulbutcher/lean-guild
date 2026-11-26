@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.0
+
+- Backups and restores: `scripts/backup.sh`, `restore.sh`, `restore-test.sh`, which checks a backup in a throwaway Forgejo, and `backup-install.sh` for a daily job.
+- The human's own commands: `scripts/release.sh`, `milestone.sh`, `new-library.sh`, `open.sh` and `remote.sh`.
+- The Lean layer has a library template, filled from the configuration, that `new-library.sh` seeds a library from.
+- A script that runs another no longer gives compose the agents' services twice.
+
 ## v0.7.0
 
 - The human's web UI, `guild-ui`, in its own container on no network an agent is on: the kit, agents, notices, activity and reviews, each also as JSON.
