@@ -55,6 +55,12 @@ push_fixture() {
   )
 }
 
+# One repository's fixture alone.
+cmd_test_push_fixture() {
+  TOKEN="$(token_of human)"
+  push_fixture "$1" || die "couldn't push $1"
+}
+
 # Each repository's first commit, before scripts/setup-repo.sh protects main; the base
 # library's is released as v0.1.0.
 cmd_test_push_fixtures() {

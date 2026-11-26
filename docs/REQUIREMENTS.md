@@ -21,7 +21,7 @@ The guild is a kit that runs a team of Claude Code agents on a Lean project thro
 ## Layers
 
 - **Kit:** how agents, the dispatcher, the gatekeeper, the forge, CI and the human work together. Lives in `Guild/` and the kit's images and scripts.
-- **Lean layer:** what every Lean project needs: elan, `lean-lsp-mcp`, CI's `lake build` and tests, the library template, `API.lock` and its generator, Lean's allowlist entries and protocol sections. Lives in `layers/lean/`.
+- **Lean layer:** what every Lean project needs: elan, `lean-lsp-mcp`, CI's `lake build` and tests, the library template, `API.lock` and its generator, Lean's allowlist entries and protocol sections. Lives in `layers/lean/`. A new library's seed takes its copyright header and shared files from the template's `seedFrom`, else from the first other library with a lakefile.
 - **Lasm layer, optional, on top of Lean:** what a project targeting the browser needs: Node, Playwright, Chromium and WebKit, npm, browser CI steps, the `site` kind, and the optional macOS runner. Lives in `layers/lasm/`. A kit without it builds, runs and passes its tests.
 - **Project:** in the consuming repository. See "The project interface".
 - **The forge** is a separate axis: Forgejo or GitHub, behind one adapter each.

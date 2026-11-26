@@ -114,6 +114,33 @@ def request : String := include_str "../templates/repo/.forgejo/issue_template/r
 def pages : String := include_str "../layers/lasm/templates/site/.github/workflows/pages.yml"
 def lasmChecks : List (String × String) := (blocks (include_str "../layers/lasm/templates/checks.md")).2
 
+/-- A new library's seed, by its path in the library with `MODULE` for the module's own. -/
+def library : List (String × String) :=
+  [("lakefile.lean", include_str "../layers/lean/templates/library/lakefile.lean"),
+   ("MODULE.lean", include_str "../layers/lean/templates/library/MODULE.lean"),
+   ("README.md", include_str "../layers/lean/templates/library/README.md"),
+   ("CHANGELOG.md", include_str "../layers/lean/templates/library/CHANGELOG.md"),
+   ("DESIGN.md", include_str "../layers/lean/templates/library/DESIGN.md"),
+   (".gitignore", include_str "../layers/lean/templates/library/.gitignore"),
+   ("test/lakefile.lean", include_str "../layers/lean/templates/library/test/lakefile.lean"),
+   ("test/Main.lean", include_str "../layers/lean/templates/library/test/Main.lean")]
+
+/-- The seed with the configuration's values filled in. `{{REPO}}`, `{{NAME}}` and `{{HEADER}}`
+stay, for the tools to fill when a library is made, and `NAME` in a path. -/
+def librarySeed (t : LibraryTemplate) : Except String (List (String × String)) :=
+  let options := match t.leanOptions with
+    | [] => ""
+    | os => String.join (os.map fun (n, v) => s!"\n    ⟨`{n}, {v}⟩,") ++ "\n  "
+  let ctx : Context :=
+    { vars := [("REPO", "{{REPO}}"), ("NAME", "{{NAME}}"), ("HEADER", "{{HEADER}}"),
+               ("MODULE", s!"{t.namespaceRoot}.\{\{NAME}}"),
+               ("LIB", s!"{t.namespaceRoot.replace "." ""}\{\{NAME}}"),
+               ("README_LINE", t.readmeLine), ("LEAN_OPTIONS", options)]
+      flags := [], inserts := [] }
+  library.mapM fun (path, src) => do
+    let path := if path == "MODULE.lean" then s!"{t.namespaceRoot.replace "." "/"}/NAME.lean" else path
+    return (s!"templates/library/{path}", (← render ctx src).1)
+
 /-- Each proxy's lists: the kit's, then each layer's the project uses. -/
 def allowlists (c : Config) : List (String × List (String × String)) :=
   let lasm (xs : List (String × String)) := if c.layers.lasm then xs else []
@@ -149,6 +176,10 @@ def projectEnv (c : Config) (s : Settings) : String :=
      v "COORDINATOR" ((c.coordinator?.map (·.name)).getD ""),
      v "REVIEWER" ((c.reviewer?.map (·.name)).getD ""),
      v "SUPERVISOR" ((c.supervisor?.map (·.name)).getD ""),
+     v "MILESTONE_REVIEWERS" (" ".intercalate (c.milestoneReviewers.map (·.name))),
+     v "LIBRARIES" (" ".intercalate (c.agents.filterMap fun a =>
+       if a.kind == .library || a.kind == .site then a.owns else none)),
+     v "SEED_FROM" (c.template.seedFrom.getD ""),
      v "RERUN_LIMIT" (toString c.bounds.rerunLimit), v "REVIEW_ROUNDS" (toString c.bounds.reviewRounds),
      v "MAX_RUN_MINUTES" (toString c.bounds.maxRunMinutes),
      v "CI_IMAGE" s.ciImage, v "TOOLCHAIN_VOLUME" s.toolchainVolume] ++ "\n"
@@ -292,6 +323,7 @@ def files (p : Project) (s : Settings) (text : Protocol.Text) : Except String (L
     c.repositories.map (fun r => (s!"labels/{r.name}.tsv",
       tsv ((labels ++ if r.name == c.coordination then coordinationLabels c else []).map
         (fun (n, col, d) => [n, col, d])))) ++
+    (← librarySeed c.template) ++
     [1, 2, 3].map (fun l => (s!"codeowners/{l}", codeowners c s l)) ++
     (allowlists c).flatMap (fun (proxy, lists) =>
       lists.map (fun (layer, body) => (s!"allow/{proxy}/{layer}.txt", body))) ++

@@ -302,6 +302,7 @@ services:
   # as the host user.
   tools:
     build: ./docker/tools
+    image: ${COMPOSE_PROJECT_NAME:-guild}-tools:1
     profiles: [tools]
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     networks: [forge-web]

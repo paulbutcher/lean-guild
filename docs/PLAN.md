@@ -51,7 +51,7 @@ After stage 10 the human tags a release that inkproof-guild can switch to. The s
 | 6 | 2026-11-25 |
 | 7 | 2026-11-25 |
 | 8 | 2026-11-25 |
-| 9 | |
+| 9 | 2026-11-26 |
 | 10 | |
 | 11 | |
 | 12 | |

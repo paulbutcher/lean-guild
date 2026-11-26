@@ -11,6 +11,11 @@
 #   kit mirrors [--rotate]  give every repository its push mirror; --rotate replaces
 #                      each mirror's token
 #   kit mirror-status  each push mirror's last sync and error
+#   kit new-library REPO NAME  commit a new library's seed to its repository
+#   kit milestone NAME  open the milestone issue that wakes the milestone reviewers
+#   kit milestone-diff  every API.lock change since the last milestone
+#   kit snapshot       what a backup must preserve, as JSON
+#   kit snapshot-compare BEFORE AFTER RESTORED  whether a restore kept it
 #   kit api METHOD PATH [JSON]  call the API as the human, print the reply
 set -euo pipefail
 . /usr/local/lib/kit/forge.sh
@@ -60,6 +65,11 @@ case "${1:-}" in
   setup-repo) shift; cmd_setup_repo "$@" ;;
   mirrors) shift; cmd_mirrors "$@" ;;
   mirror-status) cmd_mirror_status ;;
+  new-library) shift; cmd_new_library "$@" ;;
+  milestone) shift; cmd_milestone "$@" ;;
+  milestone-diff) cmd_milestone_diff ;;
+  snapshot) cmd_snapshot ;;
+  snapshot-compare) shift; cmd_snapshot_compare "$@" ;;
   api) shift; TOKEN="$(token_of human)"; call 200,201,204 "$@" | jq . ;;
   *)
     # Commands a test deployment mounts.

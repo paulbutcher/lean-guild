@@ -92,6 +92,14 @@ def cases : List (String × Bool) :=
      match plain.config.repository? "testbed-app" with
      | some r => (plain.config.contract r).contains (.codeOwners ".forgejo/CODEOWNERS" 3)
      | none => false),
+   ("a new library's seed keeps only the placeholders the tools fill, and its module under the root",
+     let t := { browser.config.template with
+       namespaceRoot := "Webbed.Libs", leanOptions := [("autoImplicit", "false")] }
+     match Kit.librarySeed t with
+     | .ok fs =>
+       fs.all (fun (_, t) => !contains (((t.replace "{{REPO}}" "").replace "{{NAME}}" "").replace "{{HEADER}}" "") "{{") &&
+         fs.any (·.1 == "templates/library/Webbed/Libs/NAME.lean")
+     | .error _ => false),
    ("the backoff reads as the agents are told it",
      Protocol.wakes [0, 900, 900] == "at once, then twice more 15 minutes apart" &&
        Protocol.wakes [300, 3600] == "after 5 minutes, then once more after an hour")]
