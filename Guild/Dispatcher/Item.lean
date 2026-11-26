@@ -258,6 +258,14 @@ def lastTag (repo : String) : D (Option (String × Version)) := do
   cached s!"tag:{repo}" 20 (fun | .tag t => some t | _ => none) .tag
     (do return (Gatekeeper.lastTag (← fg ((← forge).tags repo))).map fun (t, v) => (t.name, v))
 
+/-- The release tag at main's head, if main has nothing since its last release: whatever has merged
+is in that release. -/
+def tagAtMain (repo : String) : D (Option String) := do
+  let some main ← mainOf repo | return none
+  cached s!"tagat:{repo}:{main.sha}" 20 (fun | .text s => some s | _ => none) .text do
+    return (Gatekeeper.lastTag (← fg ((← forge).tags repo))).bind fun (t, _) =>
+      if t.sha == main.sha then some t.name else none
+
 def fileText (repo path ref : String) : D (Option String) := do fg ((← forge).file repo path ref)
 
 /-- CHANGELOG.md's newest heading on main, if it is above the last release's tag (or there is

@@ -453,6 +453,13 @@ open Guild Guild.Forge Guild.Dispatcher GuildTests.Dispatch Json
 
 /-- What the guild adds to the reference's dispatcher. -/
 def additions : List (String × (T → Check)) := [
+  ("a run's re-runs and releases, which no webhook credits to it, count as changes in the forge", fun t => do
+    trigger t "core" "work:1" "some work"
+    t.io (exec "UPDATE triggers SET created=?" [← ago t 3600])
+    let run ← claimRun t
+    let r := Json.mkObj [("outcome", toJson "completed"), ("turns", toJson (5 : Nat)), ("forge_actions", toJson (2 : Nat))]
+    discard <| t.io (endRun "core" run r)
+    same ((← t.io (q "SELECT forge_changes FROM runs WHERE id=?" [run]))[0]?.map (·.nat "forge_changes")) (some 2)),
   ("a stopped agent gets no claim until it is started again", fun t => do
     trigger t "core" "work:1" "some work"
     t.io (exec "UPDATE triggers SET created=?" [← ago t 3600])

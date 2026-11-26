@@ -114,7 +114,7 @@ namespace Release
 open Guild.Release
 
 def steps (f : Facts) : List Facts :=
-  let released := { f with rfr := false, heading := .none, mainCi := .success, mainCiLate := false }
+  let released := { f with unreleased := false, rfr := false, heading := .none, mainCi := .success, mainCiLate := false }
   match (state f).name with
   | .mainFailing | .mainCiStuck => [{ f with mainCi := .running, mainCiLate := false }]
   | .held => [{ f with held := false }]

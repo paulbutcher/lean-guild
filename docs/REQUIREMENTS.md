@@ -42,6 +42,14 @@ The guild is a kit that runs a team of Claude Code agents on a Lean project thro
 - Property 8: every cycle through the world is bounded. CI re-runs are counted per head commit from the forge, not the agent's memory; `forge ci --rerun` refuses past the limit (default one); reaching it sends the human a notice. Every other step that hands a unit to the world is checked for the same loop.
 - A run budget per unit: when a unit's agent runs, counted from the ledger, reach the budget, the human gets one notice; marking it seen restarts the count. It is proved as a bound that holds whatever the states say.
 
+## Facts and wakes
+
+- **A fact comes from its most direct source.** Whether work is unreleased comes from the release (commits on `main` since its last tag, and a `Released in` comment on the issue), never from a label alone: an issue labelled `ready-for-release` after the tag that contains its work is released, and `main` with no commits since its last tag wakes no release.
+- **The latest marker wins.** An item's `Blocked-by:` lines are its body's and its newest comment's that has any, and `Blocked-by: none` clears them; `Waiting-on:` follows the same rule. Nothing relies on editing a comment, and the protocol and `forge` say so.
+- **Events change facts; only states wake.** A comment made only of lines the kit reads, such as `Blocked-by:` and `Waiting-on:`, wakes no one by itself.
+- **A wake names the facts that decided it,** generated from the state's typed facts, history the agent can't remember included: a loop names each item and links each line's comment; a released but open blocker says to verify it, or say what falls short, then work on the item; `CI failing`, like `forge ci --rerun`'s refusal, says when the head was re-run and which job and test failed again.
+- **The ledger counts every forge action a run takes,** re-runs and releases included, so a run that changed nothing is one reviews and budgets can rely on.
+
 ## The human's web UI
 
 - A minimal web UI, in a container of its own that reads what it shows from the dispatcher, is built on the stack of [lean-todomvc-max](https://github.com/paulbutcher/lean-todomvc-max): `Std.Http.Server`, HTMX, lean-html, lean-htmx, lean-css, lean-routing, lean-middleware and lean-json.
@@ -78,4 +86,4 @@ The guild is a kit that runs a team of Claude Code agents on a Lean project thro
 - The reference's stage tests are ported, in shell, against the guild's own test projects: a plain Lean project, and a small one with Lasm. Stage 2, which imported Inkproof from GitHub, becomes the adoption tests.
 - Contract tests against a real Forgejo in the dev container keep the fake forge honest: scheduled merges, dropped labels, paging, requested reviewers, `updated_at`, and run attempt counts.
 - A stage test that makes real Claude runs uses a setup token for an account the human provides, read from the environment like any secret. It asks before it starts and says what it expects to spend, as the reference's do.
-- A randomised world test, with Plausible, draws worlds from the forge's data model, runs the real fact-reading code with simulated agents, and asserts that the kit never goes quiet with an open item nobody owes and the human hasn't been told about.
+- A randomised world test, with Plausible, draws worlds from the forge's data model, runs the real fact-reading code with simulated agents, and asserts that the kit never goes quiet with an open item nobody owes and the human hasn't been told about, wakes no agent for a state it can't change, and re-runs no head past the limit. Its worlds include a comment made only of markers, a label added after its release, a released but open blocker, a loop a later comment corrects, a stale `Waiting-on:`, and CI that fails the same way on every re-run.

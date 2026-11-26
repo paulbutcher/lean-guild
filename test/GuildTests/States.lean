@@ -12,13 +12,13 @@ open Guild.Release
 def finished : Name → Bool | .upToDate => true | _ => false
 
 theorem told : ∀ f : Facts, f.valid → GuildTests.told state finished f := by
-  intro ⟨a, b, c, d, e, g, h⟩; revert a b c d e g h; decide +kernel
+  intro ⟨a, b, c, d, e, g, h, i⟩; revert a b c d e g h i; decide +kernel
 
 theorem movesOn : ∀ f : Facts, f.valid → GuildTests.movesOn Facts.valid state steps f := by
-  intro ⟨a, b, c, d, e, g, h⟩; revert a b c d e g h; decide +kernel
+  intro ⟨a, b, c, d, e, g, h, i⟩; revert a b c d e g h i; decide +kernel
 
 theorem canFinish : ∀ f : Facts, f.valid → GuildTests.canFinish state steps 12 f := by
-  intro ⟨a, b, c, d, e, g, h⟩; revert a b c d e g h; decide +kernel
+  intro ⟨a, b, c, d, e, g, h, i⟩; revert a b c d e g h i; decide +kernel
 
 end Release
 

@@ -69,6 +69,15 @@ def finish (r : Except String String) (success : Bool := true) : IO UInt32 := do
   | .ok out => IO.print (if out.endsWith "\n" then out else out ++ "\n"); return if success then 0 else 1
   | .error m => IO.eprintln s!"forge: {m}"; return 1
 
+/-- Records, for the run under way, a change made in the forge that no webhook credits to the agent:
+a re-run, or a release the gatekeeper makes. -/
+def record (r : Except String String) (what : String) : IO (Except String String) := do
+  if r matches .ok _ then
+    if let some path := (← IO.getEnv "GUILD_ACTIONS").filter (!·.isEmpty) then
+      let h ← IO.FS.Handle.mk path .append
+      h.putStrLn what
+  return r
+
 def runOut (x : Out String) : IO (Except String String) := do
   match ← x.run.run with
   | .ok r => return r
@@ -99,7 +108,7 @@ public def main (args : List String) : IO UInt32 := do
       | .error e => finish (.error s!"the forge: {e}")
     | ["--log"] => finish (← runOut ((← cli).ciLogs repo tgt false))
     | ["--log", "all"] => finish (← runOut ((← cli).ciLogs repo tgt true))
-    | ["--rerun"] => finish (← runOut ((← cli).rerun repo tgt))
+    | ["--rerun"] => finish (← record (← runOut ((← cli).rerun repo tgt)) s!"rerun {repo} {t}")
     | _ => finish (.error "usage: forge ci <repo> <pr|main> [--log [all] | --rerun]")
   | ["review", r, n, file] =>
     let (some repo, some k) := (repoName? r, number? n) | IO.eprintln usage; return 2
@@ -113,7 +122,7 @@ public def main (args : List String) : IO UInt32 := do
     finish (← runOut ((← cli).approve repo k (" ".intercalate words)))
   | "release" :: r :: note :: issues =>
     let (some repo, some ns) := (repoName? r, issues.mapM number?) | IO.eprintln usage; return 2
-    finish (← (release me (← role "COORDINATOR") repo note ns).run)
+    finish (← record (← (release me (← role "COORDINATOR") repo note ns).run) s!"release {repo}")
   | ["version"] => finish (← version.run)
   | ["ledger"] => finish (← (ledger me (← role "SUPERVISOR") 30).run)
   | ["ledger", d] => finish (← (ledger me (← role "SUPERVISOR") ((number? d).getD 30)).run)

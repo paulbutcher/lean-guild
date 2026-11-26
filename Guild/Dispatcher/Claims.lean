@@ -329,8 +329,10 @@ def endRun (agent : String) (runId : Nat) (r : Json) : D Bool := do
   let rows ← q "SELECT claimed FROM runs WHERE id=? AND agent=?" [runId, agent]
   let some row := rows[0]? | return false
   let t ← now
+  -- Re-runs and releases reach no webhook as the agent's, so its runner counts them.
   let changes : Nat := ((← q "SELECT COUNT(*) AS n FROM events WHERE sender=? AND at>=? AND at<=?"
-    [agent, row.real "claimed", (t + 5 : Float)])[0]?.map (·.nat "n")).getD 0
+    [agent, row.real "claimed", (t + 5 : Float)])[0]?.map (·.nat "n")).getD 0 +
+    (((r.getObjVal? "forge_actions").toOption.bind (·.getNat?.toOption)).getD 0)
   let outcome := (jsonStr r "outcome").getD ""
   let cost := (jsonNum r "cost").map (·.toFloat)
   let turns := (jsonNum r "turns").bind (·.toNat?)

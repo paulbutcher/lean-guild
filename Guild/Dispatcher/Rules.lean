@@ -105,13 +105,13 @@ def asks (it : Item) : D (List (String × String × String)) := do
           | _ => false).map (fun (_, i) => (i : Int))).getD (-1))
       let fromComments := indexed.filterMap fun (ev, i) => match ev.event with
         | .comment id body =>
-          if e.trusted ev.actor && ev.actor != owner && wantsReply body then
+          if e.trusted ev.actor && ev.actor != owner && Text.asks body then
             some ((Time.when ev.time, (i : Int)), s!"reply:{id}", s!"comment on {it.kind} {at_} from {ev.actor}: {link id}")
           else none
         | _ => none
       let fromReviews := it.reviews.filterMap fun r =>
         if e.trusted r.author && r.author != owner && !r.submittedAt.isEmpty &&
-            (r.verdict == .requestChanges || (r.verdict == .comment && wantsReply r.body)) then
+            (r.verdict == .requestChanges || (r.verdict == .comment && Text.asks r.body)) then
           some (placed r, s!"reply:review-{r.id}",
             s!"{if r.verdict == .requestChanges then "changes requested on" else "review on"} pull request {at_} by {r.author} (`forge reviews {it.repo} {it.n}`)")
         else none

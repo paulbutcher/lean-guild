@@ -38,13 +38,13 @@ open Guild.Release
 
 theorem deadline : ∀ f : Facts, f.valid → (state f).holders.contains .timer →
     (expire f).valid && actionable (state (expire f)) := by
-  intro ⟨a, b, c, d, e, g, h⟩; revert a b c d e g h; decide +kernel
+  intro ⟨a, b, c, d, e, g, h, i⟩; revert a b c d e g h i; decide +kernel
 
 /-- An agent hands the release to CI only by starting a run on main: a push, or a re-run, which
 `Rerun` counts. -/
 theorem handOffs : ∀ f : Facts, f.valid →
     (steps f).all (fun g => !handOff (state f) (state g) || g.mainCi == .running) := by
-  intro ⟨a, b, c, d, e, g, h⟩; revert a b c d e g h; decide +kernel
+  intro ⟨a, b, c, d, e, g, h, i⟩; revert a b c d e g h i; decide +kernel
 
 end Release
 

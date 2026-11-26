@@ -32,3 +32,7 @@ lean_exe contract where
 /-- The dispatcher's tests alone. -/
 lean_exe dispatch where
   root := `DispatchMain
+
+/-- The randomised world test alone. -/
+lean_exe world where
+  root := `WorldMain

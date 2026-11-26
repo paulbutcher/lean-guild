@@ -24,7 +24,9 @@ structure Facts where
   mainCi : Ci := .success
   /-- CI on main none or running for longer than it should be. -/
   mainCiLate : Bool := false
-  /-- An open issue labelled ready-for-release. -/
+  /-- Commits on main since its last release tag, or no tag yet. -/
+  unreleased : Bool := true
+  /-- An open issue labelled ready-for-release that no release has completed since. -/
   rfr : Bool := false
   heading : Heading := .none
   /-- A ready-for-release issue is itself held. -/
@@ -55,7 +57,7 @@ def state (f : Facts) : State :=
   if f.mainCi == .failure then
     { name := .mainFailing, holders := [.owner],
       step := "CI failed on main: fix it before anything else" }
-  else if !f.rfr && f.heading == .none then { name := .upToDate }
+  else if !f.unreleased || (!f.rfr && f.heading == .none) then { name := .upToDate }
   else if f.held then { name := .held, holders := [.held] }
   else if f.mainCi == .running || f.mainCi == .none then
     if f.mainCiLate then

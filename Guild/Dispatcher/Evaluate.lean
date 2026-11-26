@@ -145,12 +145,12 @@ def owedOn (it : Item) : D ItemOwes := do
   let b ← blockedRules it
   let label := s!"{it.kind} {it.at_}"
   let (owes, who, waitsOn) ← if it.isPull then do
-      let (f, who) ← pullFacts it b.blocked
+      let (f, who) ← pullFacts it b
       if f.isOpen && f.ci == .failure then checkReruns it.repo (some it.n) it.head
       let s := Pull.state f
       pure (← stateOwes it.at_ "pull request" s s.name.label who label, who, [])
     else do
-      let (f, who) ← issueFacts it b.blocked b.unblockedAt
+      let (f, who) ← issueFacts it b
       let s := Issue.state f
       let on ← match s.name with
         | .inProgress => prsFor it.repo it.n

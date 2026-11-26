@@ -31,9 +31,10 @@ structure Facts where
   openPr : Bool := false
   /-- Work for it merged since it was last unblocked, accepted or released. -/
   merged : Bool := false
-  /-- `ready-for-release`. -/
+  /-- `ready-for-release`, on a repository that releases, and no release since it was added. -/
   rfr : Bool := false
-  /-- A `Released in vX.Y.Z` comment. -/
+  /-- A `Released in vX.Y.Z` comment, or, for an issue labelled ready-for-release, a release tag
+  at main's head, which must hold its work. -/
   released : Bool := false
   verified : Bool := false
   /-- `not-verified` added since its latest release. -/

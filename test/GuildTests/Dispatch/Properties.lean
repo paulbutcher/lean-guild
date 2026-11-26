@@ -35,13 +35,30 @@ def blockedByLine (k n : Nat) (before : String) : Bool :=
 def waitingOnLine (k : Nat) (at_ : Bool) : Bool :=
   Text.waitingOn s!"I need your frame.\n\n  Waiting-on: {if at_ then "@" else ""}agent-{k}" == [s!"agent-{k}"]
 
+/-- A comment made only of lines the kit reads asks no one anything; one more line in words does. -/
+def markersAskNothing (ms : List (Nat × Nat)) (words : Bool) : Bool :=
+  let marker (m : Nat × Nat) : String := match m.1 % 4 with
+    | 0 => s!"Blocked-by: org/repo-{m.2}#{m.2}"
+    | 1 => s!"  Waiting-on: @agent-{m.2}"
+    | 2 => s!"Released in v0.{m.2}.0"
+    | _ => ""
+  let text := "\n".intercalate (ms.map marker ++ (if words then ["Can you look at this?"] else []))
+  Text.asks text == words
+
+/-- `Blocked-by: none` is read as clearing, never as an item. -/
+def noneClears (before : String) : Bool :=
+  let text := s!"{before}\nBlocked-by: none\n"
+  Text.blockedByNone text && Text.blockedBy text == Text.blockedBy before
+
 def check : IO Bool := do
   let mut ok := true
   for (name, r) in [
       ("a ledger time reads back as the same second", toString (← Fuel.checkIO (∀ n, isoRoundTrip n = true) { numInst := 2000 })),
       ("a release comment names its tag", toString (← Fuel.checkIO (∀ x y z rest, releasedTag x y z rest = true) { numInst := 1000 })),
       ("a Blocked-by: line names what it waits on", toString (← Fuel.checkIO (∀ k n before, blockedByLine k n before = true) { numInst := 1000 })),
-      ("a Waiting-on: line names the agent", toString (← Fuel.checkIO (∀ k b, waitingOnLine k b = true) { numInst := 500 }))] do
+      ("a Waiting-on: line names the agent", toString (← Fuel.checkIO (∀ k b, waitingOnLine k b = true) { numInst := 500 })),
+      ("a comment of markers only asks nothing", toString (← Fuel.checkIO (∀ ms w, markersAskNothing ms w = true) { numInst := 1000 })),
+      ("Blocked-by: none clears, and names nothing", toString (← Fuel.checkIO (∀ b, noneClears b = true) { numInst := 1000 }))] do
     if r.startsWith "Success" || r.startsWith "success" then IO.println s!"PASS (dispatcher text): {name}"
     else
       IO.println s!"FAIL (dispatcher text): {name}: {r}"

@@ -38,6 +38,16 @@ def firstLine (text : String) : String :=
 
 def wantsReply (body : String) : Bool := !(firstLine body).startsWith noReply
 
+/-- A line the kit reads rather than a reader: `Blocked-by:`, `Waiting-on:` or `Released in`. -/
+def marker (line : String) : Bool :=
+  let cs := line.toList.dropWhile space
+  startsCI cs "blocked-by:" || startsCI cs "waiting-on:" || startsCI cs "released in v"
+
+/-- Whether a comment asks its reader something: it wants a reply, and says more than markers,
+which change what the kit reads but ask no one anything themselves. -/
+def asks (body : String) : Bool :=
+  wantsReply body && (lines body).any fun l => !l.trimAscii.isEmpty && !marker l
+
 def wip (title : String) : Bool :=
   let t := lower title.trimAscii.toString
   t.startsWith "wip" || t.startsWith "[wip]" || t.startsWith "draft"
@@ -73,6 +83,12 @@ where
             | _ => none
           found.toList ++ go rest fuel
         else go rest fuel
+
+/-- Whether the text has a `Blocked-by: none` line. -/
+def blockedByNone (text : String) : Bool :=
+  (lines text).any fun l =>
+    let cs := l.toList.dropWhile space
+    startsCI cs "blocked-by:" && (String.ofList ((cs.drop 11).dropWhile space)).trimAscii.toString.toLower == "none"
 
 /-- The names of `Waiting-on: <name>` lines, in order: a leading `@` is allowed, and case is
 ignored in the keyword. -/

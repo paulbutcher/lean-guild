@@ -26,3 +26,4 @@ import GuildTests.Dispatch.Obligations
 import GuildTests.Dispatch.Runs
 import GuildTests.Dispatch.Properties
 import GuildTests.Ui
+import GuildTests.World

@@ -323,6 +323,33 @@ def reruns (f : Forge) (repo : Repo) (sha : String) : M Nat := do
     n := n + (top - 1)
   return n
 
+/-- The line of a CI job's log that says what failed, if one does: the last that names a failure. -/
+def failedLine (log : String) : Option String :=
+  let unstamp (l : String) : String :=
+    match l.splitOn " " with
+    | first :: rest =>
+      if first.length ≥ 20 && first.endsWith "Z" && (first.take 4).all Char.isDigit then " ".intercalate rest else l
+    | [] => l
+  let names (l part : String) : Bool := (l.splitOn part).length > 1
+  let found := ((log.splitOn "\n").map fun l => (unstamp l).trimAscii.toString).filter fun l =>
+    names l "FAIL" || names l "✘" || l.startsWith "error"
+  found.getLast?.map fun l => (l.take 200).toString
+
+/-- What failed in the newest CI run for a commit: each failed job, and the line of its log that
+says what failed. -/
+def failures (f : Forge) (repo : Repo) (sha : String) : M (List (String × Option String)) := do
+  let some run := (← f.runs repo sha).head? | return []
+  let jobs := (← f.jobs repo run.id).filter (·.status == .failure)
+  jobs.mapM fun j => do return (j.name, failedLine (← f.jobLog repo j.id))
+
+def describeFailures (fs : List (String × Option String)) : String :=
+  if fs.isEmpty then "its run" else
+    ", ".intercalate (fs.map fun (j, l) => match l with | some l => s!"job {j} (`{l}`)" | none => s!"job {j}")
+
+/-- When CI last finished on a commit, as the forge stamps its statuses. -/
+def lastStatus (f : Forge) (repo : Repo) (sha : String) : M (Option String) := do
+  return ((← f.statuses repo sha).map (·.updatedAt)).max?
+
 end Forge
 
 end Guild.Forge

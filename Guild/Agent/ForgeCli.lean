@@ -48,7 +48,11 @@ def usage : String := "usage:
   forge release <repo> <note> [<issue>...]
                                   (the coordinator, level 3) ask the gatekeeper to release <repo>
 
-<repo> is a repository name; pull requests are numbers."
+<repo> is a repository name; pull requests are numbers.
+
+The lines the kit reads in comments: an item's newest `Blocked-by:` lines replace earlier
+comments' (`Blocked-by: none` clears them, the description's too), and its newest `Waiting-on:` line
+decides (`Waiting-on: none` clears it). Nothing needs a comment edited."
 
 structure Cli where
   forge : Forge
@@ -135,8 +139,10 @@ def Cli.rerun (c : Cli) (repo : Repo) (target : Option Nat) : Out String := do
     refuse s!"run {run.id} for {sha.take 12} is {run.status.name}: only a failed run is run again"
   let reruns ← liftM' (c.forge.reruns repo sha)
   if reruns ≥ c.rerunLimit then
-    refuse (s!"{sha.take 12} has been re-run {times reruns}, the limit: a run that fails the same way again " ++
-      "isn't the runner. Fix the cause, or say on an issue what's wrong; the human is told.")
+    let failed := Forge.describeFailures (← liftM' (c.forge.failures repo sha))
+    let at_ := ((← liftM' (c.forge.lastStatus repo sha)).map (s!" at " ++ ·)).getD ""
+    refuse (s!"{sha.take 12} has been re-run {times reruns}, the limit, and {failed} failed again{at_}: " ++
+      "it isn't the runner. Fix it, or say on an issue what's wrong; the human is told.")
   liftM' (c.forge.rerun repo run.id)
   return s!"Running {repo}'s run {run.id} for {sha.take 12} again ({reruns + 1} of the {c.rerunLimit} re-runs allowed)."
 

@@ -110,7 +110,7 @@ def cases : List (String × (T → Check)) := [
     t.evaluate core 6
     same (← t.state s!"{core}#6") (some ("merged", ["core"]))),
   ("a released request labelled again waits for its release", fun t => do
-    t.issue core 6 "scale" ["request", "accepted", "ready-for-release"] (events := [← t.comment "gatekeeper" 5000 (released "v0.2.0")])
+    t.issue core 6 "scale" ["request", "accepted", "ready-for-release"] (events := [← t.comment "gatekeeper" 5000 (released "v0.2.0"), ← t.label "ready-for-release" true 1000])
     t.evaluate core 6
     same (← t.state s!"{core}#6") (some ("ready", ["unit:release"]))),
   ("work merged before it was unblocked isn't its work", fun t => do

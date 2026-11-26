@@ -116,9 +116,11 @@ def run (e : Env) (id : Nat) (triggers : List String) : IO Unit := do
     for h in [logH, current] do h.putStr t; h.flush
   write header
   log s!"run {id} started: {", ".intercalate triggers}"
+  let actions := e.state / s!"actions-{id}"
+  if ← actions.pathExists then IO.FS.removeFile actions
   let child ← IO.Process.spawn
     { cmd := e.claude, cwd := e.workspace, stdout := .piped, stderr := .piped,
-      env := #[("GUILD_RUN", some "1")],
+      env := #[("GUILD_RUN", some "1"), ("GUILD_ACTIONS", some actions.toString)],
       args := #["-p", "--permission-mode", "dontAsk", "--output-format", "stream-json", "--verbose",
                 "--session-id", session, "--name", name, prompt triggers] }
   let stderrTask ← IO.asTask child.stderr.readToEnd
@@ -170,10 +172,15 @@ def run (e : Env) (id : Nat) (triggers : List String) : IO Unit := do
     s!"{denied.length} denied command(s). " ++
     (if rewritten > 0 then "Listed in the extension." else "**Not listed in the extension**; resume it by ID.") ++ "\n")
   logH.flush; current.flush
+  let forgeActions ← if ← actions.pathExists then do
+      let n := ((← IO.FS.readFile actions).splitOn "\n").filter (!·.isEmpty) |>.length
+      IO.FS.removeFile actions
+      pure n
+    else pure 0
   let report := Json.mkObj [
     ("outcome", toJson outcome), ("cost", (r.getObjVal? "total_cost_usd").toOption.getD .null),
     ("turns", (r.getObjVal? "num_turns").toOption.getD .null), ("denied", Json.arr denied.toArray),
-    ("session_id", toJson session), ("log", toJson logPath.toString),
+    ("session_id", toJson session), ("log", toJson logPath.toString), ("forge_actions", toJson forgeActions),
     ("transcript", toJson ((transcript.map (·.toString)).getD "")), ("in_extension", toJson (decide (rewritten > 0))),
     ("archived_log", toJson (← archiveFile e logPath s!"runs/{stamp}-{session}.md")),
     ("archived_transcript", toJson (← match transcript with
