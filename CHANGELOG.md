@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.11.0
+
+- The Lasm layer's optional macOS runner: a `macos` CI job runs the browser tests in Safari, WebKit and Chrome on the Mac's GPU, in a Tart VM made for each job by `scripts/macos-runner.sh`, and is skipped unless the deployment's `MACOS_RUNNER` is on.
+- With the macOS runner, the Lasm layer's instructions say how to launch Chromium so that it renders on the Mac's GPU.
+- A CI job skipped by its condition counts as passed, where the dispatcher read it as still running.
+- An agent named after one of the kit's own services is a configuration error.
+- Stage 3's webhook check reads the dispatcher's own record of events again.
+
 ## v0.10.0
 
 - The Lean layer's prior-art searches include awesome-lean-programming, beside Reservoir.
