@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.10.0
+
+- The Lean layer's prior-art searches include awesome-lean-programming, beside Reservoir.
+- An agent the kit has never started, having no workspace volume, comes up stopped for the human to start in the web UI; `NEW_AGENTS=running` turns this off.
+- `scripts/switch-back.sh` lists each open item whose replaced `Blocked-by:` lines the reference would read again, for the human to edit out before switching back.
+- PROTOCOL.md's differences from the reference list v0.9.0's changes to `Blocked-by:` lines and marker-only comments.
+- REQUIREMENTS.md says the reference already took the newest `Waiting-on:` line, as v0.9.0 does for `Blocked-by:`.
+
 ## v0.9.0
 
 - The randomised world test runs in `lake test`: Plausible worlds from the forge's data model, the real dispatcher and simulated agents, checking that the kit never goes quiet with unowed work, never wakes an agent for what it can't change, and never re-runs a head past the limit.
