@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.7.0
+
+- The human's web UI, `guild-ui`, in its own container on no network an agent is on: the kit, agents, notices, activity and reviews, each also as JSON.
+- Its actions pause, drain and resume the kit, stop and start agents, stop runs and mark notices seen, and pause and resume cancel and remake scheduled merges in the human's name.
+- `changes_guarded` proves that no route that could change anything is reached without the anti-forgery token, nor, but for signing in, without a signed-in session.
+- `Forge` gains `mergers`, which narrows or restores who may merge into a protected `main`.
+- The dispatcher serves `/reviews` and marks notices seen, which restarts a unit's run budget, and the runner stops a run when `control/stop-run-<id>` appears.
+
 ## v0.6.0
 
 - The dispatcher is in Lean, `guild-dispatcher`, with the reference's ledger, so a project can switch between the reference's kit and the guild and back.

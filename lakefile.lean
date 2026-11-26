@@ -6,7 +6,7 @@ import Lake
 open Lake DSL
 
 package guild where
-  version := v!"0.6.0"
+  version := v!"0.7.0"
   leanOptions := #[⟨`warningAsError, true⟩]
 
 require leancurl from git "https://github.com/paulbutcher/leancurl" @ "v0.4.0"
