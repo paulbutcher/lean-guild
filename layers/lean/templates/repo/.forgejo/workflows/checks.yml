@@ -33,21 +33,7 @@ jobs:
       - name: Check out
         run: |
           echo /opt/elan/bin >> "$GITHUB_PATH"
-          auth="Authorization: Basic $(printf 'ci-reader:%s' "$TOKEN" | base64 -w0)"
-          git config --global "http.${FORGE_URL}/.extraHeader" "$auth"
-          # Dependencies keep their GitHub URLs; fetch this project's from the forge.
-          [ -n "$DEPS_REPOSITORIES" ] || { echo "::error::The DEPS_REPOSITORIES variable is not set; run the kit's bootstrap"; exit 1; }
-          for owner in $GH_OWNERS; do
-            for repo in $DEPS_REPOSITORIES; do
-              git config --global --add "url.${FORGE_URL}/${GITHUB_REPOSITORY_OWNER}/${repo}.insteadOf" \
-                "https://github.com/${owner}/${repo}"
-            done
-          done
-          git init -q .
-          git remote add origin "${FORGE_URL}/${GITHUB_REPOSITORY}.git"
-          git fetch -q --tags origin "+${GITHUB_REF}:refs/ci/head" '+refs/heads/main:refs/remotes/origin/main'
-          git checkout -q --detach "$GITHUB_SHA"
-          git log -1 --format='Checked out %H: %s'
+{{>checkout}}
 
       - name: Internal dependencies pinned to release tags
         run: bash scripts/check-pins.sh
@@ -75,3 +61,4 @@ jobs:
           else
             echo "::warning::scripts/api-lock.sh not implemented yet; skipping"
           fi
+{{>lasm:macos}}

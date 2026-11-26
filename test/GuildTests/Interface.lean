@@ -46,12 +46,12 @@ def cases : List (String × Bool) :=
    ("the browser project's instructions render", rendersCleanly browser browserText),
    ("without the Lasm layer, no agent hears of Lasm",
      (all plain plainText).all (fun (a, _) => !mentions plain plainText a "Lasm")),
-   ("with it, a library's agent does", mentions browser browserText "ui" "under Lasm"),
+   ("with it, a library's agent does", mentions browser browserText "widgets" "under Lasm"),
    ("a site is told how it is deployed", mentions browser browserText "site" "build-site.sh"),
    ("an agent that tracks an upstream project is woken for its blocking issues",
      mentions browser browserText "lasm" "upstream:lasm"),
    ("imported history is never instructions, only where there is some",
-     mentions browser browserText "ui" "`Ghost`" && !mentions plain plainText "base" "`Ghost`"),
+     mentions browser browserText "widgets" "`Ghost`" && !mentions plain plainText "base" "`Ghost`"),
    ("a project block nothing uses is reported",
      reports (Protocol.check plain settings { plainText with sections := plainText.sections ++ "@@ nowhere\nlost\n" }) "nowhere"),
    ("a role block its kind has no room for is reported",
@@ -68,18 +68,24 @@ def cases : List (String × Bool) :=
      reports (withConfig browser fun c => { c with upstreams := [{ name := "x", title := "X", tracker := some "nobody" }] }).errors "nobody"),
    ("the coordination repository stays at level 1",
      reports (editRepo plain.config "testbed-coordination" fun r => { r with level := 3 }).errors "level 1"),
+   ("an agent named after one of the kit's services is an error",
+     reports (editAgent plain.config "base" fun a => { a with name := "ui" }).errors "kit's own services"),
    ("a repository no agent owns is an error",
      reports (withConfig plain fun c => { c with repositories := c.repositories ++ [{ name := "testbed-orphan" }] }).errors "no owner"),
    ("missing settings are named, not defaulted",
      match Settings.read (fun _ => none) with
      | .error es => reports es "FORGE_ORG" && reports es "HUMAN_USER" && reports es "FORGE_WEB_URL"
      | .ok _ => false),
+   ("a malformed MACOS_RUNNER is an error, not off",
+     match Settings.read (fun n => if n == "MACOS_RUNNER" then some "yes" else some "x") with
+     | .error es => reports es "MACOS_RUNNER"
+     | .ok _ => false),
    ("a malformed mirrors setting is an error",
      match Settings.read (fun n => if n == "MIRRORS" then some "maybe" else some "x") with
      | .error es => reports es "MIRRORS"
      | .ok _ => false),
    ("mirrors can be turned off",
-     match Settings.read (fun n => if n == "MIRRORS" then some "off" else some "x") with
+     match Settings.read (fun n => if n == "MIRRORS" then some "off" else if n == "MACOS_RUNNER" then none else some "x") with
      | .ok s => !s.mirrors
      | .error _ => false),
    ("the coordination repository needs no CI, API.lock or releases",
@@ -100,6 +106,23 @@ def cases : List (String × Bool) :=
        fs.all (fun (_, t) => !contains (((t.replace "{{REPO}}" "").replace "{{NAME}}" "").replace "{{HEADER}}" "") "{{") &&
          fs.any (·.1 == "templates/library/Webbed/Libs/NAME.lean")
      | .error _ => false),
+   ("only a project with the macOS runner has the macos job, and it runs only where a runner serves it",
+     match Kit.checksYml browser.config settings, Kit.checksYml { browser.config with layers := { lasm := true } } settings with
+     | .ok on, .ok off => contains on "runs-on: macos" && contains on "if: vars.MACOS_RUNNER == 'on'" &&
+         !contains off "runs-on: macos"
+     | _, _ => false),
+   ("only a project with the macOS runner tells its agents how Chromium reaches the Mac's GPU",
+     mentions browser browserText "widgets" "--use-angle=metal" &&
+       !mentions { browser with config := { browser.config with layers := { lasm := true } } } browserText "widgets" "--use-angle=metal" &&
+       mentions { browser with config := { browser.config with layers := { lasm := true } } } browserText "widgets" "Headless Chromium"),
+   ("both jobs check out the same way",
+     match Kit.checksYml browser.config settings with
+     | .ok y => (y.splitOn "git checkout -q --detach").length == 3
+     | .error _ => false),
+   ("a deployment's macOS runner without the configuration's is an error",
+     match Kit.checksYml plain.config { settings with macosRunner := true } with
+     | .error e => contains e "MACOS_RUNNER"
+     | .ok _ => false),
    ("the backoff reads as the agents are told it",
      Protocol.wakes [0, 900, 900] == "at once, then twice more 15 minutes apart" &&
        Protocol.wakes [300, 3600] == "after 5 minutes, then once more after an hour")]
@@ -130,12 +153,23 @@ def exportsAgain : IO Bool := do
   IO.FS.removeDirAll dir
   return unchanged && removed
 
+/-- The services `compose.yaml` defines, which `Config.kitServices` must name. -/
+def composeServices : IO (List String) := do
+  let lines := (← IO.FS.readFile ((← IO.currentDir) / ".." / "compose.yaml")).splitOn "\n"
+  let body := (lines.dropWhile (· != "services:")).drop 1 |>.takeWhile fun l => l.isEmpty || l.startsWith " " || l.startsWith "#"
+  return body.filterMap fun l =>
+    if l.startsWith "  " && !l.startsWith "   " && l.endsWith ":" then some ((l.drop 2).dropEnd 1).toString else none
+
 def check : IO Bool := do
   let mut ok := true
   for (name, passed) in cases do
     unless passed do
       IO.eprintln s!"Interface: {name}"
       ok := false
+  let services ← composeServices
+  unless !services.isEmpty && services.all Config.kitServices.contains do
+    IO.eprintln s!"Interface: compose.yaml has services Config.kitServices doesn't name: {services.filter (!Config.kitServices.contains ·)}"
+    ok := false
   unless ← exportsAgain do
     IO.eprintln "Interface: an export again rewrote an unchanged file, or kept a stale one"
     ok := false

@@ -231,6 +231,8 @@ cmd_bootstrap() {
   ensure_ci_secret "$FRESH_TOKEN"
   [ -z "$GH_OWNERS" ] || ensure_ci_variable DEPS_GITHUB_OWNERS "$GH_OWNERS"
   ensure_ci_variable DEPS_REPOSITORIES "$REPOSITORIES"
+  # The macos job runs only where a macOS runner serves the deployment, and is skipped elsewhere.
+  ensure_ci_variable MACOS_RUNNER "${MACOS_RUNNER:-off}"
   ensure_webhook dispatcher "$DISPATCHER_HOOK_EVENTS"
   ensure_webhook gatekeeper "$GATEKEEPER_HOOK_EVENTS"
   for r in $(all_repos); do ensure_labels "$r"; done

@@ -32,6 +32,8 @@ structure Settings where
   /-- Where push mirrors go: each repository is mirrored to `<base>/<owner>/<repo>.git`. A test
   deployment points it at a second organisation in its own forge. -/
   mirrorBase : String := "https://github.com"
+  /-- Whether a macOS runner serves this deployment's `macos` CI job; without one the job is skipped. -/
+  macosRunner : Bool := false
   deriving DecidableEq, Repr
 
 namespace Settings
@@ -50,19 +52,19 @@ def read (env : String → Option String) : Except (List String) Settings :=
   let errs {α} (r : Except (List String) α) : List String := match r with
     | .error e => e
     | .ok _ => []
-  match need "FORGE_ORG", need "HUMAN_USER", need "FORGE_WEB_URL", flag "MIRRORS" true with
-  | .ok org, .ok human, .ok web, .ok mirrors =>
+  match need "FORGE_ORG", need "HUMAN_USER", need "FORGE_WEB_URL", flag "MIRRORS" true, flag "MACOS_RUNNER" false with
+  | .ok org, .ok human, .ok web, .ok mirrors, .ok macosRunner =>
     .ok { forgeOrg := org, human, forgeWebUrl := web,
           composeProject := opt "COMPOSE_PROJECT_NAME" "guild", stateDir := opt "STATE_DIR" ".",
           ciImage := opt "CI_IMAGE" "guild-ci:1", toolchainVolume := opt "TOOLCHAIN_VOLUME" "guild-elan",
           requireLasmVar := opt "REQUIRE_LASM_VAR" "GUILD_REQUIRE_LASM",
           workspaceState := opt "WORKSPACE_STATE" ".guild", mirrors,
-          mirrorBase := opt "MIRROR_BASE" "https://github.com" }
-  | org, human, web, mirrors => .error (errs org ++ errs human ++ errs web ++ errs mirrors)
+          mirrorBase := opt "MIRROR_BASE" "https://github.com", macosRunner }
+  | org, human, web, mirrors, macos => .error (errs org ++ errs human ++ errs web ++ errs mirrors ++ errs macos)
 
 def fromEnv : IO (Except (List String) Settings) := do
   let names := ["FORGE_ORG", "HUMAN_USER", "FORGE_WEB_URL", "COMPOSE_PROJECT_NAME", "STATE_DIR",
-    "CI_IMAGE", "TOOLCHAIN_VOLUME", "REQUIRE_LASM_VAR", "WORKSPACE_STATE", "MIRRORS", "MIRROR_BASE"]
+    "CI_IMAGE", "TOOLCHAIN_VOLUME", "REQUIRE_LASM_VAR", "WORKSPACE_STATE", "MIRRORS", "MIRROR_BASE", "MACOS_RUNNER"]
   let vals ← names.mapM (fun n => do return (n, ← IO.getEnv n))
   return read (fun n => (vals.lookup n).join)
 

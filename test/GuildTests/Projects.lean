@@ -59,14 +59,14 @@ def browser : Project where
       agents :=
         [{ name := "coordinator", kind := .coordinator, owns := some "webbed-coordination",
            filesOn := .all },
-         { name := "ui", kind := .library, owns := some "webbed-ui",
+         { name := "widgets", kind := .library, owns := some "webbed-ui",
            filesOn := .only ["webbed-coordination"] },
          { name := "site", kind := .site, owns := some "webbed-site",
            filesOn := .only ["webbed-coordination", "webbed-ui"] },
          { name := "lasm", kind := .milestoneReviewer, filesOn := .all, humanDecides := true }]
       upstreams := [{ name := "lasm", title := "Lasm", tracker := some "lasm" }]
       bounds := { patience := 2, runBudget := 30 }
-      layers := { lasm := true }
+      layers := { lasm := true, macos := true }
       forge := .forgejo (some { owner := "webbed", formerOwners := ["oldowner"] }) true
       template := { namespaceRoot := "Webbed", readmeLine := "Part of the Webbed libraries.",
                     seedFrom := some "webbed-ui" } }
@@ -74,7 +74,7 @@ def browser : Project where
 def browserText : Protocol.Text where
   roles :=
     [("coordinator", "# Role: coordinator\n\nYou own `webbed-coordination`.\n"),
-     ("ui", "# Role: owner of Webbed.Ui\n\nYou own `webbed-ui`.\n"),
+     ("widgets", "# Role: owner of Webbed.Ui\n\nYou own `webbed-ui`.\n"),
      ("site", "# Role: owner of the site\n\nYou own `webbed-site`, a public site.\n\n- Dependencies: `webbed-ui`.\n@@ after-deployment\n- Keep each page's source short.\n"),
      ("lasm", "# Role: Lasm reviewer\n\n@@ review\nGather what the libraries had to do to work with Lasm.\n")]
 

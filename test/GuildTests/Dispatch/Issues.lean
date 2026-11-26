@@ -11,6 +11,12 @@ namespace GuildTests.Dispatch.Issues
 open Guild Guild.Forge Guild.Dispatcher GuildTests.Dispatch Json
 
 def cases : List (String × (T → Check)) := [
+  ("a job skipped for want of a runner leaves CI passed", fun t => do
+    t.pull core 9 "core" (ci := .success)
+    let time ← t.at 0
+    t.repo core fun r => { r with statuses := (defaultSha,
+      { context := "checks / macos (pull_request)", state := .other "skipped", updatedAt := time }) :: r.statuses }
+    same (← t.io (ciState core defaultSha)) .success),
   ("the way back names the lines the reference would still read, where they still block", fun t => do
     t.issue scale 1 "core" ["request"]
     t.issue scale 2 "core" ["request"] (isOpen := false) (closed := some 100)

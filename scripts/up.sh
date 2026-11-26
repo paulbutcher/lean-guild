@@ -55,6 +55,14 @@ if [ "$want" != "$have" ]; then
 fi
 docker compose up -d ci-runner
 
+# The macOS runner, in a Tart VM on the host (scripts/macos-runner.sh), has a secret of its own.
+if [ "$MACOS_RUNNER" = on ]; then
+  macos_secret="$STATE_DIR/secrets/ci/macos-runner-secret"
+  [ -s "$macos_secret" ] || ( umask 077; openssl rand -hex 20 > "$macos_secret" )
+  docker compose exec -T forgejo forgejo forgejo-cli actions register \
+    --name macos --secret "$(tr -d '[:space:]' < "$macos_secret")" --labels macos >/dev/null
+fi
+
 # Agents. Each needs its forge token (bootstrap), its runner key and the Claude credential; without
 # them it isn't started, rather than started into runs that can only fail.
 claude_token="$STATE_DIR/secrets/claude/oauth-token"

@@ -45,7 +45,7 @@ push_fixture() {
   work="$(mktemp -d)"
   cp -r /etc/kit/templates/repo/. "${work:?}/"
   for f in "/etc/kit-fixtures/$repo"/*; do
-    case "$f" in *.broken.lean) ;; *) cp "$f" "${work:?}/" ;; esac
+    case "$f" in *.broken.lean) ;; *) cp -r "$f" "${work:?}/" ;; esac
   done
   (
     cd "$work"

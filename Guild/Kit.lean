@@ -113,6 +113,7 @@ def checkPins : String := include_str "../layers/lean/templates/repo/scripts/che
 def request : String := include_str "../templates/repo/.forgejo/issue_template/request.md"
 def pages : String := include_str "../layers/lasm/templates/site/.github/workflows/pages.yml"
 def lasmChecks : List (String × String) := (blocks (include_str "../layers/lasm/templates/checks.md")).2
+def checkout : String := include_str "../layers/lean/templates/checkout.yml"
 
 /-- A new library's seed, by its path in the library with `MODULE` for the module's own. -/
 def library : List (String × String) :=
@@ -182,6 +183,7 @@ def projectEnv (c : Config) (s : Settings) : String :=
      v "SEED_FROM" (c.template.seedFrom.getD ""),
      v "RERUN_LIMIT" (toString c.bounds.rerunLimit), v "REVIEW_ROUNDS" (toString c.bounds.reviewRounds),
      v "MAX_RUN_MINUTES" (toString c.bounds.maxRunMinutes),
+     v "MACOS_RUNNER" (if s.macosRunner && c.layers.macos then "on" else "off"),
      v "CI_IMAGE" s.ciImage, v "TOOLCHAIN_VOLUME" s.toolchainVolume] ++ "\n"
 
 /-- The agents' git rules: the project's repositories keep their GitHub URLs in lakefiles and manifests,
@@ -295,7 +297,10 @@ def checksYml (c : Config) (s : Settings) : Except String String := do
     { vars := [("CI_IMAGE", s.ciImage), ("TOOLCHAIN_VOLUME", s.toolchainVolume),
                ("REQUIRE_LASM", s.requireLasmVar)]
       flags := []
-      inserts := if c.layers.lasm then lasmChecks.map (fun (n, b) => (s!"lasm:{n}", b)) else [] }
+      inserts := ("checkout", checkout) ::
+        if c.layers.lasm then (lasmChecks.filter (·.1 != "macos" || c.layers.macos)).map (fun (n, b) => (s!"lasm:{n}", b)) else [] }
+  if s.macosRunner && !c.layers.macos then
+    throw "MACOS_RUNNER is on, but the configuration has no macOS runner: set `layers.macos`, or turn the setting off"
   return (← render ctx checks).1
 
 /-- Every file the kit's scripts read, as its path within the export and its content. -/

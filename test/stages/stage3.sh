@@ -121,13 +121,13 @@ if tools test-stage1; then :; else fails=$((fails + 1)); fi
 
 echo "== Webhooks (the dispatcher, since $start)"
 events="$(dc exec -T dispatcher cat /state/events.jsonl 2>/dev/null \
-  | awk -v s="$start" -F'"at": "' '{ split($2, a, "\""); if (a[1] >= s) print }' || true)"
+  | awk -v s="$start" -F'"at": ?"' '{ split($2, a, "\""); if (a[1] >= s) print }' || true)"
 if [ -z "$events" ]; then
   fail "the dispatcher received no webhooks during the test"
 else
   pass "the dispatcher received $(printf '%s\n' "$events" | grep -c .) webhooks"
-  echo "INFO: event types: $(printf '%s\n' "$events" | sed -n 's/.*"type": "\([^"]*\)".*/\1/p' | sort | uniq -c | tr -s ' ' | tr '\n' ';')"
-  if printf '%s\n' "$events" | grep -q '"type": "action_run_failure"'; then
+  echo "INFO: event types: $(printf '%s\n' "$events" | sed -n 's/.*"type": *"\([^"]*\)".*/\1/p' | sort | uniq -c | tr -s ' ' | tr '\n' ';')"
+  if printf '%s\n' "$events" | grep -qE '"type": ?"action_run_failure"'; then
     pass "Forgejo sends a webhook when a CI run fails"
   else
     echo "INFO: no webhook for a failed CI run; the dispatcher must read Actions runs"

@@ -35,3 +35,31 @@
           else
             echo "No scripts/build-site.sh; not a site."
           fi
+
+@@ macos
+
+  # The browser tests again, in Safari, WebKit and Chrome on the GPU, on a macOS runner: a Tart VM
+  # on the host, made for one job and then thrown away. Skipped where no runner serves the
+  # deployment (its MACOS_RUNNER setting).
+  macos:
+    if: vars.MACOS_RUNNER == 'on'
+    runs-on: macos
+    env:
+      TOKEN: ${{ secrets.DEPS_READ_TOKEN }}
+      GH_OWNERS: ${{ vars.DEPS_GITHUB_OWNERS }}
+      DEPS_REPOSITORIES: ${{ vars.DEPS_REPOSITORIES }}
+      GUILD_BROWSERS: safari webkit chromium
+    steps:
+      - name: Check out
+        run: |
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+{{>checkout}}
+
+      - name: Build
+        run: lake build
+{{>lasm:install}}
+
+      - name: Browser tests
+        run: |
+          export {{REQUIRE_LASM}}=1
+          lake test

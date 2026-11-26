@@ -219,7 +219,10 @@ def ciSettled (repo sha : String) : D (CiState × Float) := do
   let at_ := (checks.map (Time.when ·.updatedAt)).foldl max 0
   if checks.isEmpty then return (.none, at_)
   if checks.any fun s => s.state == .failure || s.state == .error then return (.failure, at_)
-  if checks.all fun s => s.state == .success || s.state == .warning then return (.success, at_)
+  -- A job skipped by its condition, such as macos where no runner serves it, passes, as the
+  -- forge's combined status has it.
+  if checks.all fun s => s.state == .success || s.state == .warning || s.state == .other "skipped" then
+    return (.success, at_)
   return (.running, at_)
 
 def ciState (repo sha : String) : D CiState := do return (← ciSettled repo sha).1

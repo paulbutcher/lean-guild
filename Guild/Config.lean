@@ -216,6 +216,13 @@ def humanOnlyFiles (c : Config) : List String :=
 def duplicates (xs : List String) : List String :=
   (xs.filter (fun x => xs.count x > 1)).eraseDups
 
+/-- The kit's own compose services. Each agent's service is named after the agent, so an agent with
+one of these names would be merged into the kit's service. -/
+def kitServices : List String :=
+  ["forgejo", "ports", "proxy", "ci-proxy", "forge-proxy", "ci-docker", "ci-runner", "gatekeeper",
+   "dispatcher", "ui", "kit-build", "agent-base", "agent-lean", "agent-lasm", "ci-lean", "ci-lasm",
+   "tools", "probe", "archive-init"]
+
 /-- What is wrong with the configuration: empty when it is fine. -/
 def errors (c : Config) : List String :=
   let repos := c.repoNames
@@ -225,6 +232,7 @@ def errors (c : Config) : List String :=
   let count (k : Kind) := (c.agents.filter (·.kind == k)).length
   (duplicates repos).map (s!"repository {·} is listed twice") ++
   (duplicates agents).map (s!"agent {·} is listed twice") ++
+  (agents.filter kitServices.contains).map (s!"agent {·} has the name of one of the kit's own services") ++
   unknownRepo "the coordination repository" c.coordination ++
   (if count .coordinator == 1 then [] else ["there must be exactly one coordinator"]) ++
   (if count .prReviewer ≤ 1 then [] else ["there is more than one pull request reviewer"]) ++

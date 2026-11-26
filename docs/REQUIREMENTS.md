@@ -78,7 +78,7 @@ The guild is a kit that runs a team of Claude Code agents on a Lean project thro
 - Images are built in stages, one per layer: the kit's base (Claude Code, the forge CLI, git, the kit's compiled tools), Lean on top, Lasm on top of that. The project's configuration chooses the top stage. CI's image is built the same way.
 - Proxy allowlists are the kit's list plus each used layer's and the project's, joined when the proxy starts.
 - The Lasm layer installs Playwright's WebKit beside Chromium.
-- Optionally, the Lasm layer provides a `macos` CI job run by a runner inside a Tart macOS VM on the host, for Safari and a real GPU (`generic-specific-split.md`, "Real GPUs and Safari"). A kit without the runner skips the job rather than failing it.
+- Optionally, the Lasm layer provides a `macos` CI job run by a runner inside a Tart macOS VM on the host, for Safari and a real GPU (`generic-specific-split.md`, "Real GPUs and Safari"). A kit without the runner skips the job rather than failing it. Each job runs in a fresh clone of the VM image, thrown away after it, and the deployment's `MACOS_RUNNER` setting says whether a runner serves it. The VM reaches the forge through the host and the internet through the Mac's own network, not CI's proxy.
 
 ## Acceptance
 

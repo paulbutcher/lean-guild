@@ -1,0 +1,11 @@
+name = "webbed-ui"
+version = "0.1.0"
+defaultTargets = ["WebbedUi"]
+testDriver = "tests"
+
+[[lean_lib]]
+name = "WebbedUi"
+
+[[lean_exe]]
+name = "tests"
+root = "Tests"

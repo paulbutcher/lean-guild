@@ -1,5 +1,8 @@
 @@ tools
 - Headless Chromium, for browser tests through Playwright (`PLAYWRIGHT_BROWSERS_PATH` is set). Pin `playwright` in `test/package.json` at exactly {{PLAYWRIGHT}}, the version installed here and in CI, and never run `playwright install`: browsers can't be downloaded.
+{{#macos}}
+- CI's `macos` job runs your browser tests on a Mac's GPU, in the browsers its `GUILD_BROWSERS` names: `safari` through `safaridriver`, and `webkit` and `chromium` through Playwright. There, launch Chromium with `channel: 'chromium'` and the arguments `--use-angle=metal` and `--ignore-gpu-blocklist`, or it renders in software.
+{{/macos}}
 
 @@ toolchain
 , and Lasm's, which `npx lasm` manages
