@@ -151,6 +151,28 @@ added="$(comm -13 <(printf '%s\n' "$ref_volumes") <(volumes) | grep -E 'forgejo|
 rm -f "$state/control/draining"
 second="$(request testbed-app "Filed under the guild")"
 until_true 120 owes "testbed-app#$second" && pass "resumed, it owes testbed-app#$second" || fail "it never evaluated testbed-app#$second"
+
+# Lines a newer comment replaced, which the reference reads still: the way back lists them.
+blocker="$(request testbed-base "A blocker")"
+other="$(request testbed-base "Another blocker")"
+comment() { api POST "/repos/testorg/testbed-app/issues/$1/comments" "$(jq -nc --arg b "$2" '{body: $b}')" | jq -r .id; }
+item() { api POST /repos/testorg/testbed-app/issues "$(jq -nc --arg t "$1" '{title: $t, body: "Work."}')" | jq -r .number; }
+blocked() { api GET "/repos/testorg/testbed-app/issues/$1/labels" | jq -e 'any(.[]; .name == "blocked")' >/dev/null; }
+cleared="$(item "Cleared by Blocked-by: none")"
+line1="$(comment "$cleared" "Blocked-by: testorg/testbed-base#$blocker")"
+comment "$cleared" "Blocked-by: none" >/dev/null
+moved="$(item "Moved to another blocker")"
+line2="$(comment "$moved" "Blocked-by: testorg/testbed-base#$blocker")"
+comment "$moved" "Blocked-by: testorg/testbed-base#$other" >/dev/null
+reconcile >/dev/null
+! blocked "$cleared" && blocked "$moved" && pass "the guild reads each item's newest Blocked-by: lines" \
+  || fail "the guild's blocked labels: #$cleared $(blocked "$cleared" && echo on || echo off), #$moved $(blocked "$moved" && echo on || echo off)"
+out="$(guild scripts/switch-back.sh 2>&1)" && rc=0 || rc=$?
+[ "$rc" = 1 ] && grep -q "testbed-app#$cleared isn't blocked" <<<"$out" && grep -q "testbed-app#$moved waits on testbed-base#$other" <<<"$out" \
+  && pass "the way back lists both, with the lines the reference would still read" || fail "switch-back.sh ($rc): $out"
+# As the reference's protocol has it, the human edits the replaced lines out.
+for c in "$line1" "$line2"; do api PATCH "/repos/testorg/testbed-app/issues/comments/$c" '{"body": "No longer."}' >/dev/null; done
+out="$(guild scripts/switch-back.sh 2>&1)" && pass "with them edited out, it lists nothing" || fail "switch-back.sh after the edits: $out"
 touch "$state/control/draining"
 until_true 300 sh -c "curl -fsS http://127.0.0.1:3319/status | jq -e .drained" && pass "it drains" || fail "it never drained"
 in_guild docker compose --profile tools --profile build down --remove-orphans >/dev/null
@@ -162,6 +184,8 @@ until_true 300 reconcile || fail "it never swept"
 until_true 120 owes "testbed-app#$second" && pass "it finds the guild's ledger: testbed-app#$second is owed" \
   || fail "it doesn't owe testbed-app#$second: $(jqs .obligations)"
 [ "$(jqs .draining)" = true ] && pass "it finds the guild's drain" || fail "it isn't draining"
+! blocked "$cleared" && blocked "$moved" && pass "it reads the Blocked-by: lines as the guild did" \
+  || fail "the reference's blocked labels: #$cleared $(blocked "$cleared" && echo on || echo off), #$moved $(blocked "$moved" && echo on || echo off)"
 refkit scripts/resume.sh >/dev/null && [ "$(jqs .draining)" = false ] && pass "and resumes" || fail "it didn't resume"
 
 echo

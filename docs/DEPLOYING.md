@@ -13,7 +13,7 @@ A project builds a kit executable from its configuration and text (`def main := 
 - `COMPOSE_PROJECT_NAME` and `STATE_DIR` name the deployment and hold its secrets, control files and exported configuration, a relative `STATE_DIR` being relative to the settings file; `CI_IMAGE` and `TOOLCHAIN_VOLUME` name what CI jobs run in and the toolchains they share.
 - `MIRRORS=off` makes a deployment that creates, changes and syncs no push mirror, whatever the configuration says; `MIRROR_BASE` replaces `https://github.com` as where mirrors go.
 - Timings: `GATEKEEPER_SWEEP_SECONDS` (900) is how often the gatekeeper looks at every open pull request, in case it missed a webhook; the dispatcher's keep the reference's names and defaults (`DEBOUNCE_SECONDS`, `RECONCILE_SECONDS`, `IDLE_SECONDS` and the rest, listed in `compose.yaml`). `DISPATCHER_PORT` (3001) publishes its status JSON on localhost.
-- Agents start only once `secrets/claude/oauth-token` holds a token from `claude setup-token`.
+- Agents start only once `secrets/claude/oauth-token` holds a token from `claude setup-token`. One the kit has never started, having no workspace volume, starts stopped, for you to start in the web UI; `NEW_AGENTS=running` starts it at once.
 
 ## The web UI
 
@@ -33,6 +33,10 @@ A project builds a kit executable from its configuration and text (`def main := 
 - `scripts/milestone.sh NAME` opens the milestone issue that wakes the milestone reviewers; `--diff` shows the API.lock changes it would carry.
 - `scripts/new-library.sh REPOSITORY NAME` seeds a library the configuration already names, with a package that builds and passes CI.
 - `scripts/open.sh AGENT` opens VS Code in an agent's container; `scripts/remote.sh` starts, attaches to or stops your Remote Control sessions with agents; `scripts/kit.sh` runs a tools command.
+
+## Switching back to the reference
+
+- Drain the guild, and while it is still up run `scripts/switch-back.sh`: it lists each open item the reference would find blocked on more than the guild does, since the reference reads every `Blocked-by:` line where the guild reads the newest comment's. Edit the lines it names out, run it again until it lists nothing, then stop the guild and start the reference.
 
 ## Scripts
 

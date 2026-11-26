@@ -11,6 +11,15 @@ namespace GuildTests.Dispatch.Issues
 open Guild Guild.Forge Guild.Dispatcher GuildTests.Dispatch Json
 
 def cases : List (String × (T → Check)) := [
+  ("the way back names the lines the reference would still read, where they still block", fun t => do
+    t.issue scale 1 "core" ["request"]
+    t.issue scale 2 "core" ["request"] (isOpen := false) (closed := some 100)
+    t.issue core 3 "core" (events := [← t.comment "core" 3000 (line scale 1), ← t.comment "core" 2000 "Blocked-by: none"])
+    t.issue core 4 "core" (events := [← t.comment "core" 3000 (line scale 1), ← t.comment "core" 2000 (line scale 2)])
+    t.issue core 5 "core" (events := [← t.comment "core" 3000 (line scale 1)])
+    let found ← t.io readDifferently
+    same (found.map fun l => (l.splitOn " ").headD "") [s!"{core}#3", s!"{core}#4"]
+    ensure (found.all fun l => has l s!"{scale}#1" && has l "issuecomment-") s!"names the line: {found}"),
   ("an untriaged request from someone else is its owner's", fun t => do
     t.issue core 1 "scale" ["request", "new"]
     t.issue core 2 "core" ["request", "new"]  -- its own: a task, filing it accepted it

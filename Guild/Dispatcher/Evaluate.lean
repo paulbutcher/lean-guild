@@ -408,4 +408,38 @@ def evaluateLabelled (repo name : String) : D Unit := do
     try discard <| evaluateOne repo i.number
     catch err => log s!"evaluating {repo}#{i.number} failed: {err}"
 
+/-! ## The way back to the reference -/
+
+/-- Every `Blocked-by:` line the reference reads in an item, where each is: its description's, if a
+trusted account wrote it, and every trusted comment's, `Blocked-by: none` meaning nothing. -/
+def referenceLines (e : Env) (it : Item) : List (String × Nat × String) :=
+  let ofText (link : String) (text : String) : List (String × Nat × String) :=
+    (Text.blockedBy text).filterMap fun (org, r, k) =>
+      if org.toLower == e.org.toLower && e.project r && (r, k) != (it.repo, it.n) then some (r, k, link) else none
+  (if e.trusted it.author then ofText s!"{e.link it.repo it.n} (its description)" it.issue.body else []) ++
+    (it.comments.filter fun (_, who, _, _) => e.trusted who).flatMap fun (id, _, body, _) =>
+      ofText s!"{e.link it.repo it.n}#issuecomment-{id}" body
+
+/-- The open items the reference would find blocked on more than the guild does, since it reads
+lines a newer comment replaced: each with the items only it would wait on, and where their lines
+are. Only lines naming an item that still blocks are counted. -/
+def readDifferently : D (List String) := do
+  let e ← read
+  let mut out := []
+  for repo in e.repos do
+    if ← forgeMissing repo then continue
+    for i in ← openItems repo do
+      let some it ← readItem repo i.number (fresh := true) | continue
+      let guild := (blockersOf e it).map (·.1)
+      let extra := ((referenceLines e it).map fun (r, k, _) => (r, k)).eraseDups.filter (!guild.contains ·)
+      let blocking ← extra.filterM fun (r, k) => do return (← blockerState r k).done.isNone
+      if blocking.isEmpty then continue
+      let links := ((referenceLines e it).filter fun (r, k, _) => blocking.contains (r, k)).map (·.2.2)
+      let waits ← guild.filterM fun (r, k) => do return (← blockerState r k).done.isNone
+      let now := if waits.isEmpty then "isn't blocked" else
+        s!"waits on {", ".intercalate (waits.map fun (r, k) => itemUnit r k)}"
+      out := out ++ [s!"{it.at_} {now} in the guild, but the reference would also wait on " ++
+        s!"{", ".intercalate (blocking.map fun (r, k) => itemUnit r k)}: edit those lines out of {", ".intercalate links.eraseDups}"]
+  return out
+
 end Guild.Dispatcher

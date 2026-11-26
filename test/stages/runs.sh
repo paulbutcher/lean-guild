@@ -47,6 +47,7 @@ mkdir -p "$dir"
   echo "FORGE_WEB_URL=http://localhost:3320"
   echo "STATE_DIR=state"
   echo "MIRRORS=off"
+  echo "NEW_AGENTS=running"
   echo "DEBOUNCE_SECONDS=10"
   # A run that goes astray costs at most this.
   echo "MAX_RUN_MINUTES=20"

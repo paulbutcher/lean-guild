@@ -78,6 +78,8 @@ open_titles() { human GET "/repos/testorg/testbed-coordination/issues?state=all&
 
 echo "== A new library"
 dc run --rm -T tools test-push-fixture testbed-base </dev/null
+# Forgejo serves a push's files a moment after it accepts it.
+until_true 120 raw testbed-base lakefile.toml || fail "testbed-base's fixture never appeared"
 if out="$(scripts/new-library.sh testbed-app App 2>&1)"; then
   pass "new-library seeded testbed-app: $(grep -o 'committed the seed.*' <<<"$out")"
 else
@@ -177,6 +179,34 @@ until_true 120 curl -fsS "http://127.0.0.1:3326/status" && pass "the dispatcher 
   || fail "the dispatcher doesn't answer after restoring"
 out="$(scripts/bootstrap.sh 2>&1 | tail -1)"
 [ "$out" = 0 ] && pass "bootstrap finds nothing to change" || fail "bootstrap after restoring: $out"
+
+echo "== New agents start stopped"
+agents="$(cut -f1 "$state/config/agents.tsv")"
+kept="$(head -1 <<<"$agents")"
+# A workspace, as a switch from the reference brings it.
+docker volume create --label com.docker.compose.project="$p" --label com.docker.compose.volume="work-$kept" \
+  "${p}_work-$kept" >/dev/null
+printf 'not-a-real-token\n' > "$state/secrets/claude/oauth-token"
+scripts/up.sh >/dev/null
+stopped=1
+for a in $agents; do
+  if [ "$a" = "$kept" ]; then
+    [ -e "$state/control/stopped-$a" ] && { fail "$a, which has a workspace, was stopped"; stopped=0; }
+  else
+    [ -e "$state/control/stopped-$a" ] || { fail "$a, never started, isn't stopped"; stopped=0; }
+  fi
+done
+[ "$stopped" = 1 ] && pass "agents never started are stopped, and $kept, which has a workspace, isn't"
+running="$(dc ps --status running --services)"
+grep -qx "$(sed -n 2p <<<"$agents")" <<<"$running" && pass "a stopped agent's container runs, taking no work" \
+  || fail "the agents' containers: $running"
+second="$(sed -n 2p <<<"$agents")"
+rm -f "$state/control/stopped-$second"
+scripts/up.sh >/dev/null
+[ -e "$state/control/stopped-$second" ] && fail "up.sh stopped $second again after it was started" \
+  || pass "once started, an agent isn't stopped again"
+out="$(NEW_AGENTS=maybe scripts/up.sh 2>&1 || true)"
+grep -q 'must be stopped or running' <<<"$out" && pass "a malformed NEW_AGENTS is an error" || fail "NEW_AGENTS=maybe: $out"
 
 echo
 [ "$fails" = 0 ] && echo "Stage 9: all checks passed." || { echo "Stage 9: $fails check(s) failed."; exit 1; }

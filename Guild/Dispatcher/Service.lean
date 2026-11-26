@@ -201,6 +201,11 @@ def onReconcile (e : Env) (keys : Keys) (req : Request Body.Stream) : ContextAsy
     reconcile
     return reply .ok (Json.mkObj [])
 
+/-- What the reference would read differently after a switch back, one item a line. -/
+def onSwitchBack (e : Env) (keys : Keys) (req : Request Body.Stream) : ContextAsync (Response Body.Any) :=
+  asAdmin e keys req fun _ => do
+    return replyText (String.join ((← readDifferently).map (· ++ "\n")))
+
 def onLedger (e : Env) (req : Request Body.Stream) : ContextAsync (Response Body.Any) := do
   let who ← (agentForKey (bearer req)).run e
   let allowed := e.supervisor?.toList ++ e.milestoneReviewers
@@ -226,6 +231,7 @@ route_table Routes
     sessions := "/sessions",
     drop := "/admin/drop",
     reconcile := "/admin/reconcile",
+    switchBack := "/admin/switch-back",
     seen := "/admin/notices/:id:Nat/seen",
     reviews := "/reviews",
     status := "/status",
@@ -244,6 +250,7 @@ def app (e : Env) (keys : Keys) : StatelessHandler .std :=
       .post Routes.patterns.sessions (onSession e),
       .post Routes.patterns.drop (onDrop e keys),
       .post Routes.patterns.reconcile (onReconcile e keys),
+      .post Routes.patterns.switchBack (onSwitchBack e keys),
       .post Routes.patterns.seen (fun id req => asAdmin e keys req fun _ => do
         return if ← markSeen id then reply .ok (Json.mkObj []) else errorReply .notFound "no such notice"),
       .get Routes.patterns.status (fun _ => act e "/status" do return reply .ok (← status)),

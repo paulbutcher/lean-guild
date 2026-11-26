@@ -71,6 +71,19 @@ else
       echo "Not starting $a: run scripts/bootstrap.sh, then this script again."
     fi
   done
+  # An agent the kit has never started comes up stopped, for the human to start in the web UI once
+  # its repository is ready. Never started means no workspace, so a switch from the reference,
+  # whose agents have theirs but no stopped- files, leaves them running.
+  case "${NEW_AGENTS:-stopped}" in
+    stopped|running) ;;
+    *) echo "NEW_AGENTS is \"$NEW_AGENTS\": it must be stopped or running." >&2; exit 1 ;;
+  esac
+  for a in $ready; do
+    if [ "${NEW_AGENTS:-stopped}" = stopped ] && ! docker volume inspect "${COMPOSE_PROJECT_NAME}_work-$a" >/dev/null 2>&1; then
+      : > "$STATE_DIR/control/stopped-$a"
+      echo "Starting $a stopped: start it in the web UI once its repository is ready."
+    fi
+  done
   [ -z "$ready" ] || docker compose up -d $ready
 fi
 
