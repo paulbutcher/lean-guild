@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.11.1
+
+- A section at the end of a block leaves no blank line when it is off, so the Lasm tools list without the macOS runner is one list again.
+
 ## v0.11.0
 
 - The Lasm layer's optional macOS runner: a `macos` CI job runs the browser tests in Safari, WebKit and Chrome on the Mac's GPU, in a Tart VM made for each job by `scripts/macos-runner.sh`, and is skipped unless the deployment's `MACOS_RUNNER` is on.
