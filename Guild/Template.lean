@@ -62,11 +62,8 @@ def standalone : List Piece → List Piece
     let isTag := match t with | .var _ => false | _ => true
     if before && after && isTag then
       let sectionTag := match t with | .section .. | .close _ => true | _ => false
-      -- On the template's last line, the line to take is the one before it.
-      let last := b.isEmpty && rest.isEmpty
-      let a' := if sectionTag && last && a.endsWith "\n" then (a.dropEnd 1).toString else a
-      let b' := if sectionTag && !last then (b.drop 1).toString else b
-      .text a' :: .tag t true :: standalone (.text b' :: rest)
+      let b' := if sectionTag then (b.drop 1).toString else b
+      .text a :: .tag t true :: standalone (.text b' :: rest)
     else .text a :: .tag t false :: standalone (.text b :: rest)
   | p :: rest => p :: standalone rest
   | [] => []
@@ -102,8 +99,14 @@ def tree (ps : List Piece) : Except String (List Node) := do
   if let (g, _, _) :: _ := stack then throw s!"\{\{#{g}}} is never closed"
   return top.reverse
 
+/-- A template whose last line has no newline, such as a block, is parsed with one, which
+`unterminate` takes off the output: so a tag on that line takes its line as on any other, whether
+its section is on or off. -/
 def parse (src : String) : Except String (List Node) := do
-  tree (standalone (← tokens src))
+  tree (standalone (← tokens (if src.isEmpty || src.endsWith "\n" then src else src ++ "\n")))
+
+def unterminate (src out : String) : String :=
+  if !src.isEmpty && !src.endsWith "\n" && out.endsWith "\n" then (out.dropEnd 1).toString else out
 
 /-- What a template is rendered with. -/
 structure Context where
@@ -144,7 +147,7 @@ def renderNode (ctx : Context) : (depth : Nat) → (node : Node) → Out String
     | none => pure ""
     | some src =>
       modify (n :: ·)
-      renderNodes ctx depth (← (parse src : Except String _)) ""
+      return unterminate src (← renderNodes ctx depth (← (parse src : Except String _)) "")
   | depth, .section f inv body => do
     match ctx.flags.lookup f with
     | none => throw s!"no flag \{\{#{f}}}"
@@ -155,7 +158,8 @@ end
 /-- The rendered template, and the names of the inserts it used. -/
 def render (ctx : Context) (src : String) : Except String (String × List String) := do
   let nodes ← parse src
-  (renderNodes ctx 16 nodes "").run []
+  let (out, used) ← (renderNodes ctx 16 nodes "").run []
+  return (unterminate src out, used)
 
 /-- A file of blocks: the text before the first `@@ name` line, then each named block, up to
 the next such line. Each loses its trailing newlines, so an insert can sit mid-line. -/

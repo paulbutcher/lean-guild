@@ -114,7 +114,8 @@ def cases : List (String × Bool) :=
    ("only a project with the macOS runner tells its agents how Chromium reaches the Mac's GPU",
      mentions browser browserText "widgets" "--use-angle=metal" &&
        !mentions { browser with config := { browser.config with layers := { lasm := true } } } browserText "widgets" "--use-angle=metal" &&
-       mentions { browser with config := { browser.config with layers := { lasm := true } } } browserText "widgets" "Headless Chromium"),
+       mentions { browser with config := { browser.config with layers := { lasm := true } } } browserText "widgets" "Headless Chromium" &&
+       !mentions { browser with config := { browser.config with layers := { lasm := true } } } browserText "widgets" "be downloaded.\n\n"),
    ("both jobs check out the same way",
      match Kit.checksYml browser.config settings with
      | .ok y => (y.splitOn "git checkout -q --detach").length == 3
@@ -136,6 +137,17 @@ def plainTextUnchanged (s : String) : Bool :=
   match Template.render { vars := [], flags := [], inserts := [] } s with
   | .ok (out, _) => out == s
   | .error _ => false
+
+/-- A section on a block's last lines leaves nothing behind when it is off, as if it weren't there.
+Not proven for the same reason as `plainTextUnchanged`. -/
+def sectionAtEnd (a b : String) : Bool :=
+  let a := (a.replace "{" "(").replace "}" ")"
+  let b := (b.replace "{" "(").replace "}" ")"
+  let at_ (on : Bool) := Template.render { vars := [], flags := [("f", on)], inserts := [] }
+    (a ++ "\n{{#f}}\n" ++ b ++ "\n{{/f}}")
+  match at_ false, at_ true with
+  | .ok (off, _), .ok (on, _) => off == a && on == a ++ "\n" ++ b
+  | _, _ => false
 
 /-- Exporting into an earlier export leaves its unchanged files alone, which containers have
 mounted, and removes what it no longer writes. -/
@@ -174,8 +186,13 @@ def check : IO Bool := do
     IO.eprintln "Interface: an export again rewrote an unchanged file, or kept a stale one"
     ok := false
   let r ← Fuel.checkIO (∀ s, plainTextUnchanged s = true) { numInst := 500 }
-  match r with
-  | .success _ => pure ok
-  | _ => IO.eprintln s!"Interface: plain text: {r}"; pure false
+  unless r matches .success _ do
+    IO.eprintln s!"Interface: plain text: {r}"
+    ok := false
+  let r ← Fuel.checkIO (∀ a b, sectionAtEnd a b = true) { numInst := 500 }
+  unless sectionAtEnd "a" "b" && r matches .success _ do
+    IO.eprintln s!"Interface: a section at a block's end: {r}"
+    ok := false
+  pure ok
 
 end GuildTests.Interface
