@@ -101,9 +101,10 @@ container:
   docker_host: \"-\"
   # The CI image is loaded into ci-docker by the kit, never pulled.
   force_pull: false
-  # Lean toolchains, kept between jobs.
+  # Lean toolchains and npm's cache, kept between jobs.
   valid_volumes:
     - {s.toolchainVolume}
+    - {s.npmCacheVolume}
 "
 
 /-! ## Files -/
@@ -184,7 +185,7 @@ def projectEnv (c : Config) (s : Settings) : String :=
      v "RERUN_LIMIT" (toString c.bounds.rerunLimit), v "REVIEW_ROUNDS" (toString c.bounds.reviewRounds),
      v "MAX_RUN_MINUTES" (toString c.bounds.maxRunMinutes),
      v "MACOS_RUNNER" (if s.macosRunner && c.layers.macos then "on" else "off"),
-     v "CI_IMAGE" s.ciImage, v "TOOLCHAIN_VOLUME" s.toolchainVolume] ++ "\n"
+     v "CI_IMAGE" s.ciImage, v "TOOLCHAIN_VOLUME" s.toolchainVolume, v "NPM_CACHE_VOLUME" s.npmCacheVolume] ++ "\n"
 
 /-- The agents' git rules: the project's repositories keep their GitHub URLs in lakefiles and manifests,
 under every owner they have had, and are fetched from the forge. -/
@@ -294,7 +295,7 @@ def tsv (rows : List (List String)) : String :=
 
 def checksYml (c : Config) (s : Settings) : Except String String := do
   let ctx : Context :=
-    { vars := [("CI_IMAGE", s.ciImage), ("TOOLCHAIN_VOLUME", s.toolchainVolume),
+    { vars := [("CI_IMAGE", s.ciImage), ("TOOLCHAIN_VOLUME", s.toolchainVolume), ("NPM_CACHE_VOLUME", s.npmCacheVolume),
                ("REQUIRE_LASM", s.requireLasmVar)]
       flags := []
       inserts := ("checkout", checkout) ::

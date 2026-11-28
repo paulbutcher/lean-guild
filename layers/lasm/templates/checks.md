@@ -1,3 +1,19 @@
+@@ volume
+        - {{NPM_CACHE_VOLUME}}:/var/cache/npm
+
+@@ npm
+      # npm's cache, kept between jobs in its own volume. npm ci checks every
+      # package against package-lock.json's integrity hashes, and the cache is
+      # content-addressed and written atomically, so jobs share it safely, at
+      # once too. A cached package is taken without asking the registry
+      # again; a stalled download fails after a minute and is retried, rather
+      # than holding the job for npm's default of five minutes a try.
+      npm_config_cache: /var/cache/npm
+      npm_config_prefer_offline: "true"
+      npm_config_fetch_timeout: "60000"
+      npm_config_fetch_retries: "5"
+      npm_config_update_notifier: "false"
+
 @@ install
 
       # Lasm and browser tests run where an npm project pins them: the test

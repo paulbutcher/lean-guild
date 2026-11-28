@@ -24,6 +24,8 @@ structure Settings where
   another kit keeps. -/
   ciImage : String := "guild-ci:1"
   toolchainVolume : String := "guild-elan"
+  /-- npm's cache, kept between CI jobs. The reference had none, so a switch names its own. -/
+  npmCacheVolume : String := "guild-npm"
   requireLasmVar : String := "GUILD_REQUIRE_LASM"
   workspaceState : String := ".guild"
   /-- Whether this deployment keeps push mirrors: off for a test deployment of a project that
@@ -57,6 +59,7 @@ def read (env : String → Option String) : Except (List String) Settings :=
     .ok { forgeOrg := org, human, forgeWebUrl := web,
           composeProject := opt "COMPOSE_PROJECT_NAME" "guild", stateDir := opt "STATE_DIR" ".",
           ciImage := opt "CI_IMAGE" "guild-ci:1", toolchainVolume := opt "TOOLCHAIN_VOLUME" "guild-elan",
+          npmCacheVolume := opt "NPM_CACHE_VOLUME" "guild-npm",
           requireLasmVar := opt "REQUIRE_LASM_VAR" "GUILD_REQUIRE_LASM",
           workspaceState := opt "WORKSPACE_STATE" ".guild", mirrors,
           mirrorBase := opt "MIRROR_BASE" "https://github.com", macosRunner }
@@ -64,7 +67,7 @@ def read (env : String → Option String) : Except (List String) Settings :=
 
 def fromEnv : IO (Except (List String) Settings) := do
   let names := ["FORGE_ORG", "HUMAN_USER", "FORGE_WEB_URL", "COMPOSE_PROJECT_NAME", "STATE_DIR",
-    "CI_IMAGE", "TOOLCHAIN_VOLUME", "REQUIRE_LASM_VAR", "WORKSPACE_STATE", "MIRRORS", "MIRROR_BASE", "MACOS_RUNNER"]
+    "CI_IMAGE", "TOOLCHAIN_VOLUME", "NPM_CACHE_VOLUME", "REQUIRE_LASM_VAR", "WORKSPACE_STATE", "MIRRORS", "MIRROR_BASE", "MACOS_RUNNER"]
   let vals ← names.mapM (fun n => do return (n, ← IO.getEnv n))
   return read (fun n => (vals.lookup n).join)
 

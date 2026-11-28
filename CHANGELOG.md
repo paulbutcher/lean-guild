@@ -5,6 +5,7 @@
 - The kit raises no operating-system or browser notification: anything it tells the human is a notice in the web UI, and the tab's title counts the unseen ones.
 - Backups report to the kit: the kit page shows the last one, and a failed backup or a day without one is a notice.
 - The web UI reads at a glance: tables, coloured state badges, relative times, the kit page leading with what needs the human, and a dark theme.
+- CI keeps npm's cache between jobs in `NPM_CACHE_VOLUME`, and fails a stalled download after a minute and retries it; existing repositories take the new workflow through `scripts/setup-repo.sh`'s pull request.
 
 ## v0.11.2
 

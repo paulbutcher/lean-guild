@@ -20,8 +20,10 @@ jobs:
       image: {{CI_IMAGE}}
       volumes:
         - {{TOOLCHAIN_VOLUME}}:/opt/elan/toolchains
+{{>lasm:volume}}
     env:
       ELAN_HOME: /opt/elan
+{{>lasm:npm}}
       # ci-reader's token: reads every repository of this project, writes
       # nothing. The job's own token reads only this repository.
       TOKEN: ${{ secrets.DEPS_READ_TOKEN }}

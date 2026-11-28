@@ -10,7 +10,7 @@ A project builds a kit executable from its configuration and text (`def main := 
 ## Settings
 
 - Required: `FORGE_ORG`, `HUMAN_USER`, `HUMAN_EMAIL`, `FORGE_WEB_URL`; `FORGE_PORT` publishes Forgejo on localhost only.
-- `COMPOSE_PROJECT_NAME` and `STATE_DIR` name the deployment and hold its secrets, control files and exported configuration, a relative `STATE_DIR` being relative to the settings file; `CI_IMAGE` and `TOOLCHAIN_VOLUME` name what CI jobs run in and the toolchains they share.
+- `COMPOSE_PROJECT_NAME` and `STATE_DIR` name the deployment and hold its secrets, control files and exported configuration, a relative `STATE_DIR` being relative to the settings file; `CI_IMAGE`, `TOOLCHAIN_VOLUME` and `NPM_CACHE_VOLUME` (`guild-npm`) name what CI jobs run in and the toolchains and npm cache they share. A change to the kit's CI workflow reaches an existing repository through `scripts/setup-repo.sh REPOSITORY LEVEL`'s pull request of the files its level needs.
 - `MIRRORS=off` makes a deployment that creates, changes and syncs no push mirror, whatever the configuration says; `MIRROR_BASE` replaces `https://github.com` as where mirrors go.
 - Timings: `GATEKEEPER_SWEEP_SECONDS` (900) is how often the gatekeeper looks at every open pull request, in case it missed a webhook; the dispatcher's keep the reference's names and defaults (`DEBOUNCE_SECONDS`, `RECONCILE_SECONDS`, `IDLE_SECONDS` and the rest, listed in `compose.yaml`). `DISPATCHER_PORT` (3001) publishes its status JSON on localhost.
 - Agents start only once `secrets/claude/oauth-token` holds a token from `claude setup-token`. One the kit has never started, having no workspace volume, starts stopped, for you to start in the web UI; `NEW_AGENTS=running` starts it at once.
