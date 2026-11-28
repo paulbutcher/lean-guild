@@ -74,6 +74,7 @@ inductive Cached where
   | names (ns : List String)
   | prs (ps : List (Pull × List Nat))
   | issue (i : Option Issue)
+  | since (s : Option (String × List Changed))
 
 /-- What the dispatcher remembers between calls that isn't in the ledger. -/
 structure Caches where

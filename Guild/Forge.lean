@@ -87,6 +87,8 @@ structure Pull where
   createdAt : String
   updatedAt : String
   mergedAt : Option String
+  /-- The commit the merge made on the base branch. -/
+  mergeSha : Option String := none
   deriving Repr, BEq
 
 inductive Verdict where
@@ -197,6 +199,12 @@ structure Milestone where
   closedIssues : Nat
   deriving Repr, BEq
 
+/-- A commit, and the paths it changed. -/
+structure Changed where
+  sha : String
+  paths : List String
+  deriving Repr, BEq
+
 structure Branch where
   sha : String
   timestamp : String
@@ -290,6 +298,8 @@ structure Forge where
   jobLog : Repo → (job : Nat) → M String
   releases : Repo → M (List Release)
   tags : Repo → M (List Tag)
+  /-- The commits `head` has that `base` lacks, or `none` if the forge knows either ref by no commit. -/
+  compare : Repo → (base head : String) → M (Option (List Changed))
   milestones : Repo → M (List Milestone)
   createIssue : Repo → NewIssue → M Nat
   setAssignees : Repo → Nat → List String → M Unit

@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.13.0
+
+- Changelog lines alone on `main` since the last tag ask for no release.
+- The dispatcher comments `Released in` on a `ready-for-release` issue whose merged pull requests the last tag already holds, so no release is asked for it.
+- The owner's "no entry" wake says to comment `Released in` on an issue whose work a release already holds.
+- `Forge` gains `compare`, the commits since a ref and the paths each changed, and `Pull` gains `mergeSha`.
+
 ## v0.12.0
 
 - The kit raises no operating-system or browser notification: anything it tells the human is a notice in the web UI, and the tab's title counts the unseen ones.

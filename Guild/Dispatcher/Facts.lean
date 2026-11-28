@@ -257,6 +257,14 @@ def releasesOf (it : Item) : D (List (String × String)) := do
   | some tag => return said ++ [(since.getD it.issue.updatedAt, tag)]
   | none => return said
 
+/-- The last release tag, if it holds the work of every pull request the owner merged into main for
+the issue, and those pull requests. -/
+def tagHolding (it : Item) : D (Option (String × List Nat)) := do
+  let some owner := it.owner | return none
+  let some (tag, cs) ← sinceTag it.repo | return none
+  let prs := (← ownerPrs it.repo owner true).filter fun (p, refs) => p.baseRef == "main" && refs.contains it.n
+  return if Release.holds (cs.map (·.sha)) (prs.map (·.1.mergeSha)) then some (tag, prs.map (·.1.number)) else none
+
 /-- Labelled ready-for-release, and no release has completed it since. -/
 def awaitsRelease (it : Item) : D Bool := do
   if !it.has "ready-for-release" then return false
@@ -321,7 +329,7 @@ def issueFacts (it : Item) (b : Blocked) : D (Issue.Facts × Who) := do
                 (.coordinator, [e.coordinator?.getD e.human]), (.reviewers, reviewers)] ++ heldBy,
       notes := holdNotes ++ [(.owner, releasedOpenNote b)] ++ match released.getLast? with
         | some (_, tag) =>
-          let how := if derived then s!": main has nothing since {tag}, so it holds this work" else ""
+          let how := if derived then s!": main has nothing since {tag} but changelog lines, so it holds this work" else ""
           [(.requester, s!" (released in {tag}{how})")] ++ (if derived then [(.owner, s!" (released in {tag}{how})")] else [])
         | none => [] }
   return (f, who)
@@ -445,10 +453,15 @@ def releaseFacts (repo : String) (items : List Forge.Issue) : D (Release.Facts �
   let ownerNote ← if heading == .wrong then
       pure s!" (`forge version` gives {expected.getD "?"}; CHANGELOG.md heads {entry.getD "?"})"
     else if (Release.state f).name == .noEntry then do
-      match ← releasedTop repo with
-      | some (tag, true) => pure s!" (CHANGELOG.md's newest heading, {tag}, is already released, and lines were added under it after {tag} was tagged: move them under a new heading)"
-      | some (tag, false) => pure s!" (CHANGELOG.md's newest heading, {tag}, is the last release)"
-      | none => pure ""
+      let top := match ← releasedTop repo with
+        | some (tag, true) => [s!"CHANGELOG.md's newest heading, {tag}, is already released, and lines were added under it after {tag} was tagged: move them under a new heading"]
+        | some (tag, false) => [s!"CHANGELOG.md's newest heading, {tag}, is the last release"]
+        | none => []
+      -- The kit finds only the work of pull requests it can see refer to the issue.
+      let held := match ← lastTag repo with
+        | some (tag, _) => [s!"if {tag} already holds an issue's work, comment `Released in {tag}` on the issue instead"]
+        | none => []
+      pure (if top.isEmpty && held.isEmpty then "" else s!" ({"; ".intercalate (top ++ held)})")
     else pure ""
   let how := if level3 then s!": `forge release {repo} '<one-line note>' {names}`".trimAsciiEnd.toString
     else s!", whose command is `scripts/release.sh {repo} '<one-line note>' {names}`".trimAsciiEnd.toString

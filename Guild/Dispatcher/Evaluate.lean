@@ -205,6 +205,20 @@ def evaluate (repo : String) (n : Nat) (seed := false) (fresh := true) : D Unit 
 def openItems (repo : String) : D (List Forge.Issue) := do
   fg ((← forge).issues repo { which := .open, kinds := .all })
 
+/-- An issue awaiting release whose work the last tag already holds is recorded as released in it,
+as the gatekeeper records a release, so that no release is asked for it. -/
+def recordHeld (repo : String) (items : List Forge.Issue) : D Unit := do
+  let e ← read
+  for i in items.filter fun i => !i.isPull && i.labels.contains "ready-for-release" do
+    let some it ← readItem repo i.number | continue
+    -- Only a comment lasts: a release found from main alone is lost once code merges past the tag.
+    let since := (it.labelEvent "ready-for-release").map (·.time)
+    if (it.released e).any fun (t, _) => since.all (Time.when t ≥ Time.when ·) then continue
+    let some (tag, prs) ← tagHolding it | continue
+    let prs := ", ".intercalate (prs.map (s!"#{·}"))
+    fg (e.forge.comment repo it.n s!"{noReply}\n\nReleased in {tag}, which holds {prs}.")
+    log s!"recorded {it.at_} as released in {tag}, which holds {prs}"
+
 /-- What a repository's release owes now. -/
 def evaluateRelease (repo : String) : D Unit := do
   let e ← read
@@ -212,6 +226,7 @@ def evaluateRelease (repo : String) : D Unit := do
   let unit := s!"release:{repo}"
   let items ← openItems repo
   listed repo items
+  recordHeld repo items
   let (f, who, ready) ← releaseFacts repo items
   if f.mainCi == .failure then
     if let some m ← mainOf repo then checkReruns repo none m.sha

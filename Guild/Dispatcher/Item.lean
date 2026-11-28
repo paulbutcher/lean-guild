@@ -7,6 +7,7 @@ module
 public import Guild.Dispatcher.Ledger
 public import Guild.Dispatcher.Text
 public import Guild.Gatekeeper
+public import Guild.Core.Release
 
 /-! Issues and pull requests as the rules read them, read once until they change: kept until a
 webhook names the item, the kit writes to it, a listing shows a newer `updatedAt`, or
@@ -152,11 +153,11 @@ where
         if e.isAgent name && name != who && it.by_ name < Time.when time then some (name, c) else none
       | none => go rest
 
-/-- The `Released in vX.Y.Z` comments, from the gatekeeper, the human or the owner, oldest first,
+/-- The `Released in vX.Y.Z` comments, from the gatekeeper, the human, the dispatcher or the owner, oldest first,
 as (time, tag). -/
 def released (e : Env) (it : Item) : List (String × String) :=
   it.comments.filterMap fun (_, who, body, time) =>
-    if who == e.gatekeeper || who == e.human || some who == it.owner then
+    if who == e.gatekeeper || who == e.human || who == e.me || some who == it.owner then
       (releasedIn body).map (time, ·)
     else none
 
@@ -261,13 +262,24 @@ def lastTag (repo : String) : D (Option (String × Version)) := do
   cached s!"tag:{repo}" 20 (fun | .tag t => some t | _ => none) .tag
     (do return (Gatekeeper.lastTag (← fg ((← forge).tags repo))).map fun (t, v) => (t.name, v))
 
-/-- The release tag at main's head, if main has nothing since its last release: whatever has merged
-is in that release. -/
+/-- The last release tag and the commits on main since it, or `none` if there is no tag or the forge
+can't say. -/
+def sinceTag (repo : String) : D (Option (String × List Changed)) := do
+  let some main ← mainOf repo | return none
+  let some (tag, _) ← lastTag repo | return none
+  cached s!"since:{repo}:{tag}:{main.sha}" 3600 (fun | .since s => some s | _ => none) .since do
+    return (← fg ((← forge).compare repo tag main.sha)).map (tag, ·)
+
+/-- The last release tag, if main has nothing since it but changelog lines: whatever has merged is in
+that release. -/
 def tagAtMain (repo : String) : D (Option String) := do
   let some main ← mainOf repo | return none
   cached s!"tagat:{repo}:{main.sha}" 20 (fun | .text s => some s | _ => none) .text do
-    return (Gatekeeper.lastTag (← fg ((← forge).tags repo))).bind fun (t, _) =>
-      if t.sha == main.sha then some t.name else none
+    let some (t, _) := Gatekeeper.lastTag (← fg ((← forge).tags repo)) | return none
+    if t.sha == main.sha then return some t.name
+    match ← sinceTag repo with
+    | some (tag, cs) => return if tag == t.name && Release.changelogOnly (cs.map (·.paths)) then some tag else none
+    | none => return none
 
 def fileText (repo path ref : String) : D (Option String) := do fg ((← forge).file repo path ref)
 

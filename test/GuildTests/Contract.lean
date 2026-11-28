@@ -156,6 +156,9 @@ def scheduledStuck (e : Env) : T Unit := do
   let (n, sha) ← openPull e "stuck"
   lift (e.setStatus sha .success)
   lift (e.reviewer.review e.repo n .approve "fine" sha)
+  -- Forgejo also acts on a scheduled merge when it finishes working out mergeability.
+  ensure (← eventually e do return ((← lift (e.admin.pull e.repo n)).bind (·.mergeable)) == some true)
+    "the forge never found it mergeable"
   settle e
   let r ← mergeNow e n (schedule := true)
   ensure (r == .scheduled) s!"scheduling a merge that could go ahead gave {repr r}"
@@ -202,6 +205,31 @@ def reruns (e : Env) : T Unit := do
   let again ← lift (e.owner.runs e.repo sha)
   ensure (again.length == runs.length) s!"a re-run made {again.length} runs from {runs.length}"
 
+def mergeApproved (e : Env) (name : String) (files : List (String × String)) : T Nat := do
+  let branch := s!"{name}-{e.suffix}"
+  let sha ← lift (e.owner.commit e.repo { branch, start := some "main", message := name, files })
+  let n ← lift (e.owner.createPull e.repo { head := branch, title := name })
+  lift (e.setStatus sha .success)
+  lift (e.reviewer.review e.repo n .approve "fine" sha)
+  let r ← mergeNow e n
+  ensure (r == .merged) s!"merging {name} gave {repr r}"
+  return n
+
+def compared (e : Env) : T Unit := do
+  let n ← mergeApproved e "tagged" [(s!"tagged-{e.suffix}.txt", "tagged")]
+  let some merge := (← lift (e.admin.pull e.repo n)).bind (·.mergeSha) | throw "the merged pull request names no merge commit"
+  let main ← lift (e.admin.branch e.repo "main")
+  ensure (main.map (·.sha) == some merge) s!"the merge commit {merge} isn't main's head {repr main}"
+  let tag := s!"contract-{e.suffix}"
+  discard <| lift (e.admin.createRelease e.repo { tag, target := "main", name := tag, body := "" })
+  ensure ((← lift (e.admin.compare e.repo tag tag)) == some []) "a tag compared with itself has commits"
+  discard <| mergeApproved e "changelog" [("CHANGELOG.md", e.suffix)]
+  let some head := (← lift (e.admin.branch e.repo "main")).map (·.sha) | throw "main is gone"
+  let since ← lift (e.admin.compare e.repo tag "main")
+  ensure (since == some [{ sha := head, paths := ["CHANGELOG.md"] }]) s!"since the tag: {repr since}"
+  ensure ((← lift (e.admin.compare e.repo tag head)) == since) "main's head by its sha compares otherwise"
+  ensure ((← lift (e.admin.compare e.repo s!"none-{e.suffix}" "main")).isNone) "an unknown ref compares"
+
 def checks : List (String × (Env → T Unit)) :=
   [("a label filter is exact", labelFilter),
    ("labels from an account that may not write are dropped", droppedLabels),
@@ -212,7 +240,8 @@ def checks : List (String × (Env → T Unit)) :=
    ("a merge scheduled while CI runs fires when it passes", scheduledFires),
    ("a merge scheduled once everything passed never fires", scheduledStuck),
    ("only the listed mergers merge, until the list is lifted", narrowedMergers),
-   ("re-runs are counted from the forge", reruns)]
+   ("re-runs are counted from the forge", reruns),
+   ("a merge names its commit, and a comparison what each commit since a tag changed", compared)]
 
 /-- Runs every check against a forge with a `main` branch, printing each result. -/
 def run (name : String) (e : Env) : IO Bool := do

@@ -28,6 +28,7 @@ structure PullPart where
   headSha : String
   merged : Bool := false
   mergedAt : Option String := none
+  mergeSha : Option String := none
   mergeable : Option Bool := some true
   scheduled : Bool := false
   requested : List String := []
@@ -55,6 +56,7 @@ structure Commit where
   message : String
   tree : List (String × String)
   time : String
+  parent : Option String := none
 
 structure RunPart where
   run : Run
@@ -139,12 +141,24 @@ def toPull (i : Item) (p : PullPart) : Pull :=
   { number := i.number, isOpen := i.isOpen, merged := p.merged, title := i.title, body := i.body,
     author := i.author, headSha := p.headSha, headRef := p.head, baseRef := p.base,
     mergeable := p.mergeable, requestedReviewers := (p.requested ++ approvers).eraseDups,
-    createdAt := i.createdAt, updatedAt := i.updatedAt, mergedAt := p.mergedAt }
+    createdAt := i.createdAt, updatedAt := i.updatedAt, mergedAt := p.mergedAt, mergeSha := p.mergeSha }
 
 def tree (r : RepoState) (sha : String) : List (String × String) :=
   ((r.commits.find? (·.sha == sha)).map (·.tree)).getD []
 
 def branchSha (r : RepoState) (name : String) : Option String := r.branches.lookup name
+
+/-- A commit and its ancestors, newest first, or `none` if one of them is missing. -/
+def ancestry (r : RepoState) (sha : String) : Option (List Commit) :=
+  go r.commits.length sha
+where
+  go : Nat → String → Option (List Commit)
+    | 0, _ => none
+    | n + 1, s => do
+      let c ← r.commits.find? (·.sha == s)
+      match c.parent with
+      | some p => return c :: (← go n p)
+      | none => return [c]
 
 def note (i : Item) (actor time : String) (e : Event) : Item :=
   { i with timeline := i.timeline.push { time, actor, event := e }, updatedAt := time }
@@ -176,9 +190,9 @@ def allowed (r : RepoState) (i : Item) (p : PullPart) : Bool :=
 
 def doMerge (r : RepoState) (i : Item) (p : PullPart) (actor time : String) : W RepoState := do
   let sha := hex (← fresh)
-  let c := { sha, message := i.title, tree := tree r p.headSha, time }
+  let c := { sha, message := i.title, tree := tree r p.headSha, time, parent := branchSha r p.base }
   let i := note { i with isOpen := false, closedAt := some time,
-                         pull := some { p with merged := true, mergedAt := some time, scheduled := false } } actor time .merged
+                         pull := some { p with merged := true, mergedAt := some time, mergeSha := some sha, scheduled := false } } actor time .merged
   let r := { r with commits := c :: r.commits,
                     branches := (p.base, sha) :: ((r.branches.filter (·.1 != p.base)).filter (·.1 != p.head)) }
   startRuns (setItem r i) c time
@@ -252,6 +266,15 @@ def as (ref : IO.Ref World) (who : String) : Forge where
   jobLog _ job := run ref do return s!"job {job}"
   releases repo := run ref do return (← repoOf repo).releases
   tags repo := run ref do return (← repoOf repo).tags
+  compare repo base head := run ref do
+    let r ← repoOf repo
+    let at_ (ref : String) := ((branchSha r ref).orElse fun _ => (r.tags.find? (·.name == ref)).map (·.sha)).getD ref
+    let some lacked := ancestry r (at_ base) | return none
+    let some had := ancestry r (at_ head) | return none
+    return some ((had.filter fun c => !lacked.any (·.sha == c.sha)).reverse.map fun c =>
+      let before := (c.parent.map (tree r)).getD []
+      let paths := (c.tree.map (·.1) ++ before.map (·.1)).eraseDups
+      { sha := c.sha, paths := paths.filter fun p => c.tree.lookup p != before.lookup p })
   milestones repo := run ref do return (← repoOf repo).milestones
   createIssue repo k := run ref do
     let r ← repoOf repo
@@ -375,7 +398,7 @@ def as (ref : IO.Ref World) (who : String) : Forge where
     let time ← tick
     let base := (parent.map (tree r)).getD []
     let files := k.files.foldl (fun t (path, text) => (path, text) :: t.filter (·.1 != path)) base
-    let c := { sha := hex (← fresh), message := k.message, tree := files, time }
+    let c := { sha := hex (← fresh), message := k.message, tree := files, time, parent }
     let r := { r with commits := c :: r.commits,
                       branches := (k.branch, c.sha) :: r.branches.filter (·.1 != k.branch) }
     -- A push to a pull request's branch moves its head.

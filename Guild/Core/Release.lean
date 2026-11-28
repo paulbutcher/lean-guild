@@ -24,7 +24,7 @@ structure Facts where
   mainCi : Ci := .success
   /-- CI on main none or running for longer than it should be. -/
   mainCiLate : Bool := false
-  /-- Commits on main since its last release tag, or no tag yet. -/
+  /-- Commits on main since its last release tag, other than changelog lines alone, or no tag yet. -/
   unreleased : Bool := true
   /-- An open issue labelled ready-for-release that no release has completed since. -/
   rfr : Bool := false
@@ -36,6 +36,17 @@ structure Facts where
   /-- An open `Release <repo>` decision. -/
   decision : Bool := false
   deriving DecidableEq, Repr, Inhabited
+
+/-- Whether commits, given as the paths each changed, add changelog lines and nothing else, leaving
+the tag before them holding all the work. A commit with no paths counts as code, since the forge may
+not have said what it changed. -/
+def changelogOnly (since : List (List String)) : Bool :=
+  since.all fun ps => !ps.isEmpty && ps.all (· == "CHANGELOG.md")
+
+/-- Whether a tag holds an item's work: the item has merged pull requests, and no merge commit of
+them is on main after the tag. A merge commit the forge didn't name might be. -/
+def holds (since : List String) (merges : List (Option String)) : Bool :=
+  !merges.isEmpty && merges.all fun m => m.any (!since.contains ·)
 
 def Facts.valid (f : Facts) : Bool :=
   !f.mainCiLate || f.mainCi == .running || f.mainCi == .none

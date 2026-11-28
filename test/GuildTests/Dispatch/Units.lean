@@ -112,6 +112,35 @@ def release (t : T) (repo := core) : IO (Option (String × List String)) := do
 
 def changelog (t : T) (text : String) (ref := "main") : IO Unit := t.file core "CHANGELOG.md" text (ref := ref)
 
+theorem no_entry_needs_code_since_the_tag (f : Release.Facts) :
+    (Release.state f).name = .noEntry → f.unreleased = true := by
+  cases f with | mk ci late unreleased rfr heading held level3 decision =>
+  cases ci <;> cases late <;> cases unreleased <;> cases rfr <;> cases heading <;> cases held <;>
+    cases level3 <;> cases decision <;> decide
+
+theorem code_since_the_tag_is_unreleased (since : List (List String)) (ps : List String) (p : String)
+    (hp : p ∈ ps) (h : p ≠ "CHANGELOG.md") : Release.changelogOnly (since ++ [ps]) = false := by
+  have : ps.all (· == "CHANGELOG.md") = false := by
+    rw [List.all_eq_false]; exact ⟨p, hp, by simpa using h⟩
+  simp [Release.changelogOnly, List.all_append, this]
+
+theorem a_merge_after_the_tag_isnt_held (since : List String) (m : String) (ms : List (Option String))
+    (h : m ∈ since) : Release.holds since (some m :: ms) = false := by
+  simp [Release.holds, h]
+
+/-- main one commit past v0.2.0, which changed `files` and nothing else. -/
+def pastTag (t : T) (files : List (String × String)) : IO Unit := do
+  changelog t "## v0.2.0\n\n- a.\n" (ref := "v0.2.0")
+  t.repo core fun r =>
+    let tree := files.foldl (fun tr (p, x) => (p, x) :: tr.filter (·.1 != p)) (Fake.tree r "tag-v0.2.0")
+    { r with commits := r.commits.map fun c => if c.sha == mainSha then { c with parent := some "tag-v0.2.0", tree } else c }
+
+/-- Issue `n`, ready for release, whose work core merged in pull request `pr`, as the commit `merge`. -/
+def mergedIn (t : T) (pr n : Nat) (merge : String) : IO Unit := do
+  t.issue core n "scale" ["request", "accepted", "ready-for-release"]
+  t.pull core pr "core" (body := s!"Refs #{n}") (isOpen := false) (merged := some 5000)
+  t.item core pr fun i => { i with pull := i.pull.map ({ · with mergeSha := some merge }) }
+
 def releases : List (String × (T → Check)) := [
   ("9: CI failing on main", fun t => do
     setUp t
@@ -148,12 +177,37 @@ def releases : List (String × (T → Check)) := [
     t.issue core 5 "scale" ["request", "accepted", "ready-for-release"]
     same (← release t) (some ("no entry", ["core"]))
     ensure (has ((← t.descriptions "core").headD "")
-      "(CHANGELOG.md's newest heading, v0.2.0, is already released, and lines were added under it after v0.2.0 was tagged: move them under a new heading)") "added lines"
+      "(CHANGELOG.md's newest heading, v0.2.0, is already released, and lines were added under it after v0.2.0 was tagged: move them under a new heading; if v0.2.0 already holds an issue's work, comment `Released in v0.2.0` on the issue instead)") "added lines"
     -- Nothing added: only which heading is the last release.
     changelog t "## v0.2.0\n\n- a.\n"
     discard <| release t
     ensure (((← t.io (q "SELECT description FROM obligations WHERE agent='core'"))[0]?.map (·.str "description")).getD ""
-      |>.endsWith "(CHANGELOG.md's newest heading, v0.2.0, is the last release)") "the last release"),
+      |>.endsWith "(CHANGELOG.md's newest heading, v0.2.0, is the last release; if v0.2.0 already holds an issue's work, comment `Released in v0.2.0` on the issue instead)") "the last release"),
+  ("changelog lines alone after the tag ask for no release", fun t => do
+    setUp t
+    -- As inkproof-demos at v0.47.0: #4 is in the tag, and a later commit only added its lines.
+    pastTag t [("CHANGELOG.md", "## v0.2.0\n\n- a.\n- b.\n")]
+    mergedIn t 4 5 "tag-v0.2.0"
+    same (← release t) (some ("up to date", []))
+    same (← t.owing (some s!"release:{core}")) []
+    ensure ((← t.commentsOn core 5).any (has · "Released in v0.2.0, which holds #4.")) "recorded as released"
+    t.evaluate core 5
+    same (← t.state s!"{core}#5") (some ("released", ["scale"]))
+    ensure ((← t.queued "core").isEmpty) "the owner isn't woken"
+    discard <| release t
+    same ((← t.commentsOn core 5).filter (has · "Released in")).length 1 "recorded once"),
+  ("an issue whose work the tag holds is released, though code merged since", fun t => do
+    setUp t
+    pastTag t [("Test/Core.lean", "def c := 1\n")]
+    mergedIn t 4 5 "tag-v0.2.0"
+    same (← release t) (some ("up to date", []))
+    ensure ((← t.commentsOn core 5).any (has · "Released in v0.2.0, which holds #4.")) "recorded as released"),
+  ("code merged after the tag still asks for a release", fun t => do
+    setUp t
+    pastTag t [("Test/Core.lean", "def c := 1\n"), ("CHANGELOG.md", "## v0.2.0\n\n- a.\n- b.\n")]
+    mergedIn t 4 5 mainSha
+    same (← release t) (some ("no entry", ["core"]))
+    ensure (!(← t.commentsOn core 5).any (has · "Released in")) "not recorded as released"),
   ("a heading the gatekeeper would refuse is the owner's", fun t => do
     setUp t
     changelog t "## v0.2.1\n\n- b.\n\n## v0.2.0\n"

@@ -77,6 +77,7 @@ structure RawPull where
   created_at : String
   updated_at : String
   merged_at : Option String
+  merge_commit_sha : Option String
   deriving FromJson
 
 structure RawReview where
@@ -196,6 +197,15 @@ structure RawFile where
   filename : String
   deriving FromJson
 
+structure RawCompared where
+  sha : String
+  files : Option (Array RawFile)
+  deriving FromJson
+
+structure RawCompare where
+  commits : Option (Array RawCompared)
+  deriving FromJson
+
 structure RawUrl where
   html_url : String
   deriving FromJson
@@ -221,7 +231,8 @@ def RawPull.toPull (r : RawPull) : Pull :=
     body := r.body.getD "", author := r.user.login, headSha := r.head.sha, headRef := r.head.ref,
     baseRef := r.base.ref, mergeable := r.mergeable,
     requestedReviewers := ((r.requested_reviewers.getD #[]).map (·.login)).toList,
-    createdAt := r.created_at, updatedAt := r.updated_at, mergedAt := r.merged_at }
+    createdAt := r.created_at, updatedAt := r.updated_at, mergedAt := r.merged_at,
+    mergeSha := r.merge_commit_sha }
 
 def verdict : String → Verdict
   | "APPROVED" => .approve
@@ -483,6 +494,10 @@ def connect (c : Conn) : Forge where
     return rs.map fun r => { tag := r.tag_name, draft := r.draft, publishedAt := r.published_at }
   tags repo := do
     return (← pages c RawTag (repoPath c repo ++ "/tags")).map fun t => { name := t.name, sha := t.commit.sha }
+  compare repo base head := do
+    let r ← find c RawCompare (repoPath c repo ++ s!"/compare/{encode base}...{encode head}") [("files", "true")]
+    return r.map fun r => (r.commits.getD #[]).toList.map fun k =>
+      { sha := k.sha, paths := ((k.files.getD #[]).map (·.filename)).toList }
   milestones repo := do
     let ms ← pages c RawMilestone (repoPath c repo ++ "/milestones") [("state", "all")]
     return ms.map fun m =>
