@@ -6,6 +6,8 @@
 - The dispatcher comments `Released in` on a `ready-for-release` issue whose merged pull requests the last tag already holds, so no release is asked for it.
 - The owner's "no entry" wake says to comment `Released in` on an issue whose work a release already holds.
 - `Forge` gains `compare`, the commits since a ref and the paths each changed, and `Pull` gains `mergeSha`.
+- The web UI's stylesheet is served as CSS alone, where a second content type let a browser refuse it and draw the pages unstyled.
+- The web UI marks every notice it showed seen at once, and its page links are spaced tabs.
 
 ## v0.12.0
 
