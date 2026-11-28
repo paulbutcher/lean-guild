@@ -18,7 +18,7 @@ A project builds a kit executable from its configuration and text (`def main := 
 ## The web UI
 
 - It is at `http://localhost:$UI_PORT/` (3002), published on localhost only, on no network an agent is on. Sign in with the key in `secrets/ui/key`, which `scripts/up.sh` makes.
-- It shows the kit, agents, notices, activity and reviews, and pauses, drains and resumes the kit, stops and starts agents, stops runs and marks notices seen. Each page answers with its data as JSON when asked for `application/json`.
+- It shows the kit, agents, notices, activity and reviews, and pauses, drains and resumes the kit, stops and starts agents, stops runs and marks notices seen, one or all at once. Each page answers with its data as JSON when asked for `application/json`.
 - Pause and resume cancel and remake scheduled merges in the human's name, with `secrets/human/token`, as the reference's scripts did.
 
 ## Backups

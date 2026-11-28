@@ -25,6 +25,7 @@ route_table Routes
     stopRun := "/runs/:id:Nat/stop",
     stopAgent := "/agents/:name:String/stop",
     startAgent := "/agents/:name:String/start",
-    seen := "/notices/:id:Nat/seen" ]
+    seen := "/notices/:id:Nat/seen",
+    seenTo := "/notices/seen-to/:id:Nat" ]
 
 end Guild.Ui

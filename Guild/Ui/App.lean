@@ -171,9 +171,8 @@ def safeMethod : Method → Bool
 def groups (u : Env) : List Group :=
   [ { guards := [.antiForgery],
       routes := [
-        .get patterns.style (fun _ => do
-          let r ← Response.ok.html stylesheet.render
-          pure (withHeader r Header.Name.contentType "text/css; charset=utf-8")),
+        .get patterns.style (fun _ => ServerEngine.bytes (e := .std)
+          (Response.ok.header Header.Name.contentType (.mk "text/css; charset=utf-8")) stylesheet.render.toUTF8),
         .get patterns.signIn signInPage,
         .post patterns.signIn (signIn u)] },
     { guards := [.antiForgery, .signedIn],
@@ -198,7 +197,12 @@ def groups (u : Env) : List Group :=
           return [s!"Started {name} again."]),
         .post patterns.seen (fun id req => act u req links.notices do
           discard <| u.call .post s!"/admin/notices/{id}/seen" (admin := true)
-          return [s!"Marked notice {id} seen."])] } ]
+          return [s!"Marked notice {id} seen."]),
+        .post patterns.seenTo (fun id req => act u req links.notices do
+          let st := Status.ofJson (← u.call .get "/status")
+          let ids := (st.notices.filter fun n => n.seen.isNone && n.id ≤ id).map (·.id)
+          for n in ids do discard <| u.call .post s!"/admin/notices/{n}/seen" (admin := true)
+          return [s!"Marked {ids.length} {if ids.length == 1 then "notice" else "notices"} seen."])] } ]
 
 /-- No route that could change anything is reached without an anti-forgery token, nor, but for
 signing in itself, without a signed-in session.

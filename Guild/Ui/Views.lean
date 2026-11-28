@@ -201,6 +201,13 @@ def noticeRows (s : Site) (now : Float) (ns : List Notice) : List (Node .tableRo
 
 def noticeHeads : List String := ["When", "Kind", "About", "Notice", ""]
 
+/-- Marks seen every unseen notice up to the newest shown, so that one arriving after the page was
+drawn isn't marked unread. -/
+def seenAll (ns : List Notice) : List (Node .flow) :=
+  match ((ns.filter (·.seen.isNone)).map (·.id)).max? with
+  | some newest => [p [action (links.seenTo newest) "Mark all seen"]]
+  | none => []
+
 def kitView (s : Site) (now : Float) (st : Status) : List (Node .flow) :=
   let (label, tone, says) := brake st
   let unseen := st.notices.filter (·.seen.isNone)
@@ -230,7 +237,7 @@ def kitView (s : Site) (now : Float) (st : Status) : List (Node .flow) :=
   counted h2_ "Waiting on you" st.waitingOnYou.length
     [grid ["Item", "State", "Since"] (st.waitingOnYou.map fun u =>
       row [cell [unitLink s u], cell [stateOf u], cell [since u]])] ++
-  counted h2_ "Unseen notices" unseen.length [grid noticeHeads (noticeRows s now unseen)] ++
+  counted h2_ "Unseen notices" unseen.length (grid noticeHeads (noticeRows s now unseen) :: seenAll unseen) ++
   counted h2_ "Work in progress" held.length
     [grid ["Item", "Kind", "State", "Held by", "Since"] (held.map fun u =>
       row [cell [unitLink s u.unit], cell [u.kind], cell [u.state], cell [", ".intercalate u.holders],
@@ -288,8 +295,9 @@ def agentsView (now : Float) (st : Status) : List (Node .flow) :=
 
 def noticesView (s : Site) (now : Float) (st : Status) : List (Node .flow) :=
   let unseen := (st.notices.filter (·.seen.isNone)).length
-  [h1 [s!"Notices ({unseen} unseen)"],
-   if st.notices.isEmpty then p ["None."] else grid noticeHeads (noticeRows s now st.notices)]
+  ([h1 [s!"Notices ({unseen} unseen)"],
+   if st.notices.isEmpty then p ["None."] else grid noticeHeads (noticeRows s now st.notices)] : List (Node .flow)) ++
+  seenAll st.notices
 
 def activityView (now : Float) (filter : String) (es : List Event) : List (Node .flow) :=
   let shown := if filter.isEmpty then es else es.filter fun e =>

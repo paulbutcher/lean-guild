@@ -24,7 +24,8 @@ def unit (u state : String) (holders : List String) : Json :=
   Json.mkObj [("unit", toJson u), ("kind", toJson "issue"), ("state", toJson state),
     ("holders", toJson holders), ("step", toJson "do it"), ("since", toJson "2026-11-25T10:00:00Z")]
 
-/-- What the dispatcher reports: base running run 7, with a notice waiting. -/
+/-- What the dispatcher reports: base running run 7, with notice 3 waiting, 2 seen, and 5 newer than
+the page that marks all seen up to 3. -/
 def statusJson (paused : Bool) : Json := Json.mkObj [
   ("paused", toJson paused), ("draining", toJson false), ("drained", toJson false),
   ("under_way", .null), ("reconciled", toJson "2026-11-25T10:00:00Z"), ("stopped", toJson ([] : List String)),
@@ -35,7 +36,11 @@ def statusJson (paused : Bool) : Json := Json.mkObj [
   ("runs", Json.arr #[Json.mkObj [("id", toJson 7), ("agent", toJson "base"), ("triggers", toJson ["lib#5"]),
     ("claimed", toJson "t"), ("started", toJson "t"), ("ended", .null), ("outcome", .null)]]),
   ("notices", Json.arr #[Json.mkObj [("id", toJson 3), ("at", toJson "t"), ("kind", toJson "needs-human"),
-    ("repo", toJson "lib"), ("number", toJson 4), ("text", toJson "decide"), ("posted", toJson 1), ("seen", .null)]]),
+    ("repo", toJson "lib"), ("number", toJson 4), ("text", toJson "decide"), ("posted", toJson 1), ("seen", .null)],
+    Json.mkObj [("id", toJson 2), ("at", toJson "t"), ("kind", toJson "budget"), ("repo", .null), ("number", .null),
+      ("text", toJson "spent"), ("posted", toJson 0), ("seen", toJson "t")],
+    Json.mkObj [("id", toJson 5), ("at", toJson "t"), ("kind", toJson "needs-human"), ("repo", toJson "lib"),
+      ("number", toJson 5), ("text", toJson "later"), ("posted", toJson 1), ("seen", .null)]]),
   ("obligations", Json.arr #[]),
   ("units", Json.arr #[unit "lib#4" "waiting on you" [], unit "lib#5" "to do" ["base"]]),
   ("summary", toJson "Kit: working.")]
@@ -218,6 +223,18 @@ def serverCases (paused : IO.Ref Bool) (seen : IO.Ref (Array (String × String))
       seen.set #[]
       discard <| r.browser.post (links.seen 3) [] (placement := .header)
       ensure ((← seen.get).any (· == ("/admin/notices/3/seen", "Bearer admin"))) s!"the dispatcher saw {← seen.get}"),
+   ("marking all seen marks only the unseen notices up to the newest the page showed", do
+      let r ← rig paused seen
+      signIn r
+      seen.set #[]
+      discard <| r.browser.post (links.seenTo 3) [] (placement := .header)
+      let marked := (← seen.get).toList.filter (·.1.endsWith "/seen")
+      ensure (marked == [("/admin/notices/3/seen", "Bearer admin")]) s!"the dispatcher saw {marked}"),
+   ("the stylesheet is served as CSS alone, which a browser refusing to sniff needs", do
+      let r ← rig paused seen
+      let resp ← r.browser.get links.style
+      let types := (((String.fromUTF8? resp).getD "").splitOn "\r\n").filter fun l => l.toLower.startsWith "content-type:"
+      ensure (types == ["Content-Type: text/css; charset=utf-8"]) s!"its content types: {types}"),
    ("a page answers with its data as JSON when asked", do
       let r ← rig paused seen
       signIn r
