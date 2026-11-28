@@ -63,6 +63,11 @@ def viewCases : List (String × Bool) :=
    ("the activity filter keeps only entries that mention it",
      let es := [{ at_ := "1", who := "base", text := "queued: x" }, { at_ := "2", who := "app", text := "run 4 started" }]
      has (text (activityView "BASE" es)) "queued: x" && !has (text (activityView "BASE" es)) "run 4 started"),
+   ("the kit page shows a backup's failure only when it is newer than the last success",
+     let at_ (ok failed : String) := { st with backups :=
+       { okAt := some ok, folder := some "/backups/x", failedAt := some failed, log := some "/state/backup.log" } }
+     has (text (kitView site (at_ "2026-11-27T03:30:00Z" "2026-11-28T03:30:00Z"))) "/state/backup.log" &&
+     !has (text (kitView site (at_ "2026-11-28T03:30:00Z" "2026-11-27T03:30:00Z"))) "/state/backup.log"),
    ("the layout carries the anti-forgery token for HTMX",
      has (layout .kit (some "tok") 0 []) "X-CSRF-Token&quot;: &quot;tok")]
 

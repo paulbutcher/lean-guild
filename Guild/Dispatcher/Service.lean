@@ -273,7 +273,8 @@ def every (e : Env) (seconds : Float) (what : String) (k : D Unit) : IO Unit := 
 
 def idler : D Unit := do
   for (what, k) in [("closing unstarted runs", abandonUnstarted), ("moving obligations on", wakeDue),
-                    ("checking CI", refreshCi), ("checking for idleness", checkIdle)] do
+                    ("checking CI", refreshCi), ("checking for idleness", checkIdle),
+                    ("checking backups", checkBackups)] do
     try k catch err => log s!"{what} failed: {err}"
 
 def reconciler : D Unit := do

@@ -291,6 +291,41 @@ def ciRun (status : RunStatus) (created : String) : Fake.RunPart :=
 
 def marked (t : T) : IO (List String) := do return (← t.env.caches.ciMarked.get).toList.map (·.1)
 
+/-- A backup's record in `control/`, as `scripts/backup.sh` writes it, `ago` seconds before now. -/
+def record (t : T) (name : String) (ago : Nat) (detail : String) : IO Unit := do
+  IO.FS.writeFile (t.control / name) s!"{((← t.env.now) - ago.toFloat).floor.toUInt64}\n{detail}\n"
+
+def backupNotices (t : T) : ExceptT String IO (List String) := do
+  return (← t.io (q "SELECT text FROM notices WHERE kind='backup'")).toList.map (·.str "text")
+
+def backups : List (String × (T → Check)) := [
+  ("a failed backup newer than the last success is one notice, naming its log", fun t => do
+    record t "backup-ok" 3600 "/backups/a"
+    record t "backup-failed" 60 "/state/control/backup.log"
+    t.io checkBackups
+    t.io checkBackups
+    let ns ← backupNotices t
+    same ns.length 1 s!"{ns}"
+    ensure (ns.any (has · "see /state/control/backup.log")) s!"{ns}"),
+  ("a failure older than the last success is no notice", fun t => do
+    record t "backup-failed" 3600 "/state/control/backup.log"
+    record t "backup-ok" 60 "/backups/b"
+    t.io checkBackups
+    same (← backupNotices t) []),
+  ("no backup for 26 hours is one notice, counted from the first start if none ever succeeded", fun t => do
+    t.pass (25 * 3600)
+    t.io checkBackups
+    same (← backupNotices t) [] "within a day of the start"
+    t.pass (2 * 3600)
+    t.io checkBackups
+    t.io checkBackups
+    let ns ← backupNotices t
+    same ns.length 1 s!"{ns}"
+    ensure (ns.any (has · "since the kit started")) s!"{ns}"
+    record t "backup-ok" (27 * 3600) "/backups/c"
+    t.io checkBackups
+    ensure ((← backupNotices t).any (has · "No backup has succeeded since")) "a success 27 hours ago")]
+
 def statusReads : List (String × (T → Check)) := [
   ("what waits on the human follows the evaluations", fun t => do
     t.issue core 1 "core" ["needs-human"] (assignees := [human])
@@ -441,7 +476,7 @@ def priority : List (String × (T → Check)) := [
 
 def check : IO Bool := do
   let rs ← [("dispatcher unstarted runs", unstarted), ("dispatcher idle summary", idle), ("dispatcher summary", summary),
-            ("dispatcher failed runs", failed), ("dispatcher draining", draining), ("dispatcher status", statusReads),
+            ("dispatcher failed runs", failed), ("dispatcher draining", draining), ("dispatcher status", statusReads), ("dispatcher backups", backups),
             ("dispatcher item cache", itemsReadOnce), ("dispatcher priority", priority)].mapM fun (g, cs) => runCases g cs
   return rs.all id
 

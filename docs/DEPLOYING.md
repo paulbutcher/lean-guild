@@ -23,7 +23,7 @@ A project builds a kit executable from its configuration and text (`def main := 
 
 ## Backups
 
-- `scripts/backup.sh` puts Forgejo's dump, the run ledger and the run archive in a folder of `backups/` named by the time, keeping the newest `BACKUP_KEEP` (7); `secrets/` and `control/` are not in it. `scripts/backup-install.sh` runs it daily at 03:30 on a Mac, and elsewhere prints a crontab line.
+- `scripts/backup.sh` puts Forgejo's dump, the run ledger and the run archive in a folder of `backups/` named by the time, keeping the newest `BACKUP_KEEP` (7); `secrets/` and `control/` are not in it. `scripts/backup-install.sh` runs it daily at 03:30 on a Mac, and elsewhere prints a crontab line. Each attempt is recorded in `control/`, and the kit page shows the last; a failed backup is a notice, and so is none for 26 hours.
 - `scripts/restore-test.sh [BACKUP]` restores the newest, or the one named, into a throwaway Forgejo that can reach nothing, on `RESTORE_TEST_PORT` (3003), and compares it with what the live one held.
 - `scripts/restore.sh BACKUP` replaces Forgejo, the ledger and the archive with a backup, keeping a raw copy of the Forgejo it replaces, and starts the kit again. It needs the deployment's own `secrets/`.
 

@@ -63,32 +63,26 @@ def action (path label : String) (confirm : Option String := none) : Node .phras
     { type := "button", hxPost := path, hxTarget := "#page", hxSelect := "#page",
       hxSwap := some .outerHTML, hxConfirm := confirm }
 
-/-- The newest notice, for the script that shows each new one as a browser notification. -/
-def newest : Option Notice → List (Node .flow)
-  | none => []
-  | some n => [Html.span [] { id := "latest-notice" }
-      [("hidden", "hidden"), ("data-id", toString n.id), ("data-text", s!"{n.kind}: {n.text}")]]
-
 /-- How often a page asks for itself again. -/
 def refreshEvery : String := "15s"
 
 /-- The page around `content`, which is drawn again every `refreshEvery` while it is open, as the
-reference's `watch.sh` redrew the status. `unseen` counts the notices waiting. -/
-def layout (page : Page) (token : Option String) (unseen : Nat) (content : List (Node .flow))
-    (latest : Option Notice := none) : String :=
+reference's `watch.sh` redrew the status. `unseen` counts the notices waiting; the title carries
+it too, so that a pinned tab shows it, and HTMX takes the title from each redraw. -/
+def layout (page : Page) (token : Option String) (unseen : Nat) (content : List (Node .flow)) : String :=
   let nav := Html.nav (pages.map fun p =>
     let label := if p == .notices && unseen > 0 then s!"{p.title} ({unseen})" else p.title
     (a { href := p.link, class_ := if p == page then some "here" else none } [label] : Node .flow))
+  let count := if unseen > 0 then s!"({unseen}) " else ""
   document
-    (head (title s!"{page.title}: the guild")
+    (head (title s!"{count}{page.title}: the guild")
       [meta_ [("charset", "utf-8")],
        meta_ [("name", "viewport"), ("content", "width=device-width, initial-scale=1")],
        link { rel := "stylesheet", href := links.style },
-       script htmxScript, script { src := links.script }])
+       script htmxScript])
     (body
-      [header [nav, Html.p [action links.signOut "Sign out", Html.button ["Show notices as browser notifications"]
-          { type := "button", id := "notify-on" } [("hidden", "hidden")]]],
-       Html.main [Htmx.div (content ++ newest latest)
+      [header [nav, Html.p [action links.signOut "Sign out"]],
+       Html.main [Htmx.div content
          { id := "page", hxGet := page.link, hxTrigger := s!"every {refreshEvery}",
            hxSelect := "#page", hxSwap := some .outerHTML }]]
       (rawAttrs := csrfAttrs token))
@@ -103,7 +97,7 @@ def kitView (s : Site) (st : Status) : List (Node .flow) :=
       if st.drained then "Draining, and nothing is under way: it is safe to stop the kit."
       else s!"Draining: waiting for {", ".intercalate (st.underWay.getD [])}."
     else "Running."
-  [h1 ["The kit"],
+  ([h1 ["The kit"],
    -- The summary's first line says how the kit is; each line after it, one thing behind that.
    p [txt ((st.summary.splitOn "\n").headD "")] { class_ := "summary" },
    ul ((st.summary.splitOn "\n").drop 1 |>.filter (!·.trimAscii.isEmpty) |>.map fun l =>
@@ -119,7 +113,14 @@ def kitView (s : Site) (st : Status) : List (Node .flow) :=
    ul (st.units.filter (!·.holders.isEmpty) |>.map fun u =>
      (li [p [unitLink s u.unit, s!" ({u.kind}, {u.state}): {", ".intercalate u.holders}"]] : Node .listItemOrScript)),
    p [txt (if st.ci.isEmpty then "CI: nothing running." else s!"CI: may be running on {", ".intercalate st.ci}.")],
-   p [s!"Reconciled with the forge: {st.reconciled.getD "not yet"}."]]
+   p [s!"Reconciled with the forge: {st.reconciled.getD "not yet"}."],
+   h2 ["Backups"],
+   p [txt (match st.backups.okAt, st.backups.folder with
+     | some t, some f => s!"Last backed up at {t}, into {f}."
+     | _, _ => "No backup has succeeded yet.")]] : List (Node .flow)) ++
+  -- ISO times in one zone order as text does.
+  (st.backups.failedAt.filter (fun t => st.backups.okAt.all (· < t))).toList.map fun t =>
+    (p [txt s!"The backup at {t} failed: see {(st.backups.log.filter (!·.isEmpty)).getD "scripts/backup.sh's output"}."] : Node .flow)
 
 def money (x : Float) : String := s!"${(x * 100).round / 100}"
 

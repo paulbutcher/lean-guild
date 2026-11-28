@@ -4,14 +4,15 @@
 
 # On a Mac, install (or, with --remove, remove) the launchd job that runs scripts/backup.sh daily
 # at 03:30, or when the Mac next wakes, with this deployment's KIT and KIT_ENV. Docker must be
-# running then; if a backup fails you get a notification. Elsewhere it prints a crontab line.
+# running then; a failed or missed backup is a notice in the web UI. Elsewhere it prints a crontab
+# line.
 set -euo pipefail
 . "$(dirname "$0")/lib.sh"
 kit="$(pwd)"
 log="$STATE_DIR/control/backup.log"
 if [ "$(uname)" != Darwin ]; then
   echo "launchd is macOS's. Elsewhere, add this to your crontab (crontab -e):"
-  echo "30 3 * * * KIT='$KIT' KIT_ENV='$KIT_ENV' KIT_NO_BUILD=1 '$kit/scripts/backup.sh' >> '$log' 2>&1"
+  echo "30 3 * * * KIT='$KIT' KIT_ENV='$KIT_ENV' BACKUP_LOG='$log' KIT_NO_BUILD=1 '$kit/scripts/backup.sh' >> '$log' 2>&1"
   exit 1
 fi
 label="guild.$COMPOSE_PROJECT_NAME.backup"
@@ -33,13 +34,14 @@ cat > "$plist" <<PLIST
   <array>
     <string>/bin/bash</string>
     <string>-c</string>
-    <string>date; "$kit/scripts/backup.sh" || osascript -e 'display notification "The daily backup failed: see $log" with title "The guild: $COMPOSE_PROJECT_NAME"'</string>
+    <string>date; "$kit/scripts/backup.sh"</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key><string>$PATH</string>
     <key>KIT</key><string>$KIT</string>
     <key>KIT_ENV</key><string>$KIT_ENV</string>
+    <key>BACKUP_LOG</key><string>$log</string>
   </dict>
   <key>StartCalendarInterval</key>
   <dict><key>Hour</key><integer>3</integer><key>Minute</key><integer>30</integer></dict>

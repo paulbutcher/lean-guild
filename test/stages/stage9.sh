@@ -6,6 +6,8 @@
 #   - the reference's stage 8: scripts/backup.sh makes a backup readable by its owner only, and
 #     three with BACKUP_KEEP=2 leave the newest two; scripts/restore-test.sh restores the newest
 #     into a throwaway Forgejo and finds it matches what Forgejo held;
+#   - the kit page shows the last backup; a failed backup and a day without one are notices, and
+#     the tab's title counts the unseen notices;
 #   - scripts/restore.sh puts the kit back as it was at the backup: Forgejo, the ledger and the
 #     run archive, keeping a raw copy of what it replaced, and the kit answers again;
 #   - scripts/new-library.sh seeds an empty library that passes CI, and leaves it alone after;
@@ -142,6 +144,34 @@ for f in forgejo.tar.gz ledger.db run-archive.tar.gz before.json after.json; do
 done
 [ "$(stat -c %a "$newest/forgejo.tar.gz" 2>/dev/null)" = 600 ] \
   && pass "the backup's files are readable by their owner only" || fail "the backup's files are readable by others"
+
+echo "== Backups in the web UI"
+site=http://127.0.0.1:3327
+jar="$dir/cookies"
+rm -f "$jar"
+ui() { curl -sS -b "$jar" -c "$jar" "$@"; }
+form() { ui "$site/sign-in" | grep -o 'name="__anti-forgery-token" value="[^"]*' | sed 's/.*value="//'; }
+until_true 120 curl -fsS "$site/sign-in" || fail "the web UI never answered"
+ui -o /dev/null -X POST --data-urlencode "key=$(tr -d '[:space:]' < "$state/secrets/ui/key")" \
+  --data-urlencode "__anti-forgery-token=$(form)" "$site/sign-in"
+kit() { ui "$site/"; }
+kitjson() { ui -H 'Accept: application/json' "$site/"; }
+[ "$(kitjson | jq -r .backup.ok.folder)" = "$newest" ] && kit | grep -qF "$newest" \
+  && pass "the kit page shows the last backup's folder" || fail "the last backup: $(kitjson | jq -c .backup)"
+backup_notice() { kitjson | jq -e --arg t "$1" '.notices[] | select(.kind == "backup" and (.text | contains($t)))'; }
+log="$dir/backup.log"
+BACKUP_DIR=/proc/no-backups BACKUP_LOG="$log" scripts/backup.sh >/dev/null 2>&1 && fail "a backup into /proc succeeded"
+until_true 120 backup_notice "failed: see $log" && pass "a failed backup is a notice" \
+  || fail "no notice of the failure: $(kitjson | jq -c '.notices, .backup')"
+kit | grep -qF "failed: see $log" && pass "and the kit page shows it, with its log" || fail "the kit page doesn't show the failure"
+# The last success, 27 hours before now: the daily job hasn't run.
+printf '%s\n%s\n' "$(( $(date +%s) - 27 * 3600 ))" "$newest" > "$state/control/backup-ok"
+until_true 120 backup_notice "No backup has succeeded since" && pass "a day without a backup is a notice" \
+  || fail "no notice of the missed backup: $(kitjson | jq -c '.notices')"
+unseen="$(kitjson | jq '[.notices[] | select(.seen == null)] | length')"
+title="$(kit | grep -o '<title>[^<]*' | sed 's/<title>//')"
+[ "$unseen" -gt 0 ] && [ "$title" = "($unseen) The kit: the guild" ] && pass "the tab's title counts the unseen notices: $title" \
+  || fail "the title, with $unseen unseen: $title"
 if out="$(scripts/restore-test.sh 2>&1)"; then
   pass "$(grep '^Compared' <<<"$out")"
 else

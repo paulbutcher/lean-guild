@@ -151,6 +151,43 @@ def kitSummary : D String := do
   let lines := stuck.map (s!"stuck: {·}") ++ (failing.map (s!"failing: {·}")).toList ++ work ++ notes
   return "\n".intercalate (s!"Kit: {head}; {wait}" :: lines.map (s!"  - {·}"))
 
+/-! ## Backups
+
+`scripts/backup.sh` records its last success in `control/backup-ok`, as its time and folder, and
+its last failure in `control/backup-failed`, as its time and log, one per line. -/
+
+/-- A day's backup and a few hours' grace, for a Mac that slept through 03:30. -/
+def backupDue : Float := 26 * 3600
+
+def backupRecord (name : String) : D (Option (Float × String)) := do
+  let path := (← read).control / name
+  unless ← path.pathExists do return none
+  match (← IO.FS.readFile path).splitOn "\n" with
+  | t :: rest => return (parseFloat? t.trimAscii.toString).map (·, (rest.headD "").trimAscii.toString)
+  | [] => return none
+
+/-- A failure newer than the last success is a notice, and so is no success for `backupDue`,
+counted from the first start when there has never been one: the job may never have run. -/
+def checkBackups : D Unit := do
+  let ok ← backupRecord "backup-ok"
+  if let some (at_, logFile) ← backupRecord "backup-failed" then
+    if ok.all (·.1 < at_) then
+      let see := if logFile.isEmpty then "scripts/backup.sh's output" else logFile
+      discard <| addNotice s!"backup-failed:{at_.floor.toUInt64}" "backup" none none
+        s!"The backup at {Time.iso at_} failed: see {see}."
+  let since ← match ok with | some (t, _) => pure t | none => firstStarted
+  if (← now) - since > backupDue then
+    let what := if ok.isSome then s!"since {Time.iso since}" else s!"since the kit started on {Time.iso since}"
+    discard <| addNotice s!"backup-missed:{since.floor.toUInt64}" "backup" none none
+      s!"No backup has succeeded {what}. Check that the daily backup is installed (scripts/backup-install.sh) and that Docker was running at 03:30."
+
+def backupJson : D Json := do
+  let entry (name field : String) : D Json := do
+    return match ← backupRecord name with
+      | some (t, v) => Json.mkObj [("at", toJson (Time.iso t)), (field, toJson v)]
+      | none => .null
+  return Json.mkObj [("ok", ← entry "backup-ok" "folder"), ("failed", ← entry "backup-failed" "log")]
+
 /-! ## JSON -/
 
 def isoOrNull (v : Val) : Json := match v.real? with
@@ -203,6 +240,7 @@ def status : D Json := do
     ("notices", Json.arr (notices.map (rowJson · ["at", "seen"]))),
     ("obligations", Json.arr (obligations.map (rowJson · ["since", "next_at"]))),
     ("units", Json.arr (units.map (rowJson · ["since"] ["holders"]))),
+    ("backup", ← backupJson),
     ("summary", toJson (← kitSummary))]
 
 /-- The human has seen notice `id`, if there is one. Seeing a run budget's notice starts its unit's

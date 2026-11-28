@@ -17,7 +17,6 @@ route_table Routes
     activity := "/activity",
     reviews := "/reviews",
     style := "/style.css",
-    script := "/notify.js",
     signIn := "/sign-in",
     signOut := "/sign-out",
     pause := "/kit/pause",

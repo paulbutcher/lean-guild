@@ -42,13 +42,9 @@ input_dir kitProxy where
   path := "docker/proxy"
   text := true
 
-input_file uiScript where
-  path := "Guild/Ui/notify.js"
-  text := true
-
 @[default_target]
 lean_lib Guild where
-  needs := #[protocolText, leanLayer, lasmLayer, kitTemplates, kitProxy, uiScript]
+  needs := #[protocolText, leanLayer, lasmLayer, kitTemplates, kitProxy]
 
 @[test_driver]
 script tests do

@@ -13,14 +13,27 @@
 #                       what Forgejo held just before and after the dump (kit snapshot), for
 #                       scripts/restore-test.sh
 # secrets/ and control/ aren't in it: they are files under STATE_DIR.
+# Each attempt is recorded for the dispatcher, which shows it and makes a failure a notice:
+# control/backup-ok holds the last success's time and folder, control/backup-failed the last
+# failure's time and BACKUP_LOG, the log the daily job writes to. A failure before STATE_DIR is
+# known goes unrecorded, and becomes a notice once no backup has succeeded for a day.
 set -euo pipefail
+out=""
+finish() {
+  local rc=$? name detail
+  [ -z "$out" ] || rm -rf "$out.partial"
+  case "${STATE_DIR:-}" in /*) [ -d "$STATE_DIR/control" ] || return 0 ;; *) return 0 ;; esac
+  if [ "$rc" = 0 ]; then name=backup-ok detail="$out"; else name=backup-failed detail="${BACKUP_LOG:-}"; fi
+  printf '%s\n%s\n' "$(date +%s)" "$detail" > "$STATE_DIR/control/$name.partial"
+  mv "$STATE_DIR/control/$name.partial" "$STATE_DIR/control/$name"
+}
+trap finish EXIT
 . "$(dirname "$0")/lib.sh"
 umask 077  # tokens' hashes, Forgejo's secrets, transcripts
 dir="${BACKUP_DIR:-$STATE_DIR/backups}"
 keep="${BACKUP_KEEP:-7}"
 out="$dir/$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -p "$out.partial"
-trap 'rm -rf "$out.partial"' EXIT
 image="$COMPOSE_PROJECT_NAME-tools:1"
 volume() { echo "${COMPOSE_PROJECT_NAME}_$1"; }
 
@@ -40,7 +53,6 @@ docker compose run --rm --no-deps -T --entrypoint tar archive-init -C /archive -
 
 docker compose run --rm -T tools snapshot > "$out.partial/after.json"
 
-trap - EXIT
 mv "$out.partial" "$out"
 echo "Backed up to $out ($(du -sh "$out" | cut -f1))."
 

@@ -93,6 +93,12 @@ structure UnitState where
   step : String
   since : String
 
+structure Backups where
+  okAt : Option String
+  folder : Option String
+  failedAt : Option String
+  log : Option String
+
 structure Status where
   paused : Bool
   draining : Bool
@@ -109,6 +115,7 @@ structure Status where
   obligations : List Owed
   units : List UnitState
   summary : String
+  backups : Backups
 
 def Status.ofJson (j : Json) : Status :=
   let agents := match j.getObjVal? "agents" with
@@ -138,7 +145,12 @@ def Status.ofJson (j : Json) : Status :=
     units := (list j "units").map fun u =>
       { unit := field u "unit" "", kind := field u "kind" "", state := field u "state" "",
         holders := field u "holders" [], step := field u "step" "", since := field u "since" "" },
-    summary := field j "summary" "" }
+    summary := field j "summary" "",
+    backups :=
+      let b := (j.getObjVal? "backup").toOption.getD .null
+      let ok := (b.getObjVal? "ok").toOption.getD .null
+      let failed := (b.getObjVal? "failed").toOption.getD .null
+      { okAt := field? ok "at", folder := field? ok "folder", failedAt := field? failed "at", log := field? failed "log" } }
 
 structure Event where
   at_ : String

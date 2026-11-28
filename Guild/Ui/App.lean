@@ -58,8 +58,6 @@ def Env.call (u : Env) (method : Leancurl.Method) (path : String) (admin := fals
     | .ok j => return j
     | .error e => throw (IO.userError s!"the dispatcher's answer to {path} isn't JSON: {e}")
 
-def notifyScript : String := include_str "notify.js"
-
 def signedInKey : String := "signed-in"
 
 def withHeader (response : Response Body.Any) (name : Header.Name) (value : String) : Response Body.Any :=
@@ -97,7 +95,7 @@ def page (u : Env) (which : Page) (path : String) (req : Request Body.Stream)
   let report ← (u.report.modifyGet fun r => (r, []) : IO (List String))
   let said : List (Html.Node .flow) := if report.isEmpty then [] else
     [Html.div (report.map fun l => (Html.p [Html.Node.text l] : Html.Node .flow)) { class_ := "report" }]
-  Response.ok.html (layout which (token req) unseen (said ++ (← draw j)) (Status.ofJson status).notices.head?)
+  Response.ok.html (layout which (token req) unseen (said ++ (← draw j)))
 
 def kitPage (u : Env) (req : Request Body.Stream) : ContextAsync (Response Body.Any) :=
   page u .kit "/status" req fun j => do
@@ -175,9 +173,6 @@ def groups (u : Env) : List Group :=
         .get patterns.style (fun _ => do
           let r ← Response.ok.html stylesheet.render
           pure (withHeader r Header.Name.contentType "text/css; charset=utf-8")),
-        .get patterns.script (fun _ => do
-          let r ← Response.ok.html notifyScript
-          pure (withHeader r Header.Name.contentType "text/javascript; charset=utf-8")),
         .get patterns.signIn signInPage,
         .post patterns.signIn (signIn u)] },
     { guards := [.antiForgery, .signedIn],
