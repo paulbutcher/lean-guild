@@ -221,7 +221,7 @@ one of these names would be merged into the kit's service. -/
 def kitServices : List String :=
   ["forgejo", "ports", "proxy", "ci-proxy", "forge-proxy", "ci-docker", "ci-runner", "gatekeeper",
    "dispatcher", "ui", "kit-build", "agent-base", "agent-lean", "agent-lasm", "ci-lean", "ci-lasm",
-   "tools", "probe", "archive-init"]
+   "tools", "probe", "archive-init", "state-init"]
 
 /-- What is wrong with the configuration: empty when it is fine. -/
 def errors (c : Config) : List String :=

@@ -136,6 +136,20 @@ until_true 120 owes "testbed-base#$first" && pass "it owes testbed-base#$first" 
 ref_volumes="$(volumes)"
 refkit timeout 900 scripts/drain.sh >/dev/null && pass "it drains" || fail "it never drained"
 refkit scripts/down.sh >/dev/null
+# The reference's runs on testbed-base#$first, past the test project's run budget of 40, claimed
+# before the guild could raise a notice: the budget counts none of them. Its agents never run here.
+in_guild docker compose --profile tools build --quiet tools >/dev/null
+for i in $(seq 41); do
+  echo "INSERT INTO runs (agent, claimed, ended, outcome) VALUES ('base', strftime('%s','now') - 172800 + $i, strftime('%s','now') - 172800 + $i, 'completed');
+INSERT INTO triggers (agent, key, description, created, run_id) VALUES ('base', 'owe:testbed-base#$first:$i:1', '', 0, last_insert_rowid());"
+done | docker run --rm -i --network none --user 0 -v "${project}_dispatcher-state:/state" \
+  --entrypoint sqlite3 "$project-tools:1" /state/ledger.db
+# The reference's dispatcher runs as uid 1000 and the guild's as the host's, which here is 1000 too.
+# A ledger owned by another uid stands in for a host whose uid isn't, in each direction.
+foreign() {
+  docker run --rm --network none -v "${project}_dispatcher-state:/state" alpine:3.24 chown -R 4242:4242 /state
+}
+foreign
 
 echo "== The guild, in its place"
 guild scripts/up.sh >/dev/null
@@ -149,6 +163,27 @@ until_true 300 sh -c "curl -fsS http://127.0.0.1:3319/status | jq -e '.reconcile
 added="$(comm -13 <(printf '%s\n' "$ref_volumes") <(volumes) | grep -E 'forgejo|dispatcher-state|ci-' || true)"
 [ -z "$added" ] && pass "it uses the reference's volumes" || fail "it made volumes of its own: $added"
 rm -f "$state/control/draining"
+# A claim checks the budget of each unit it wakes for, as a runner asks for it.
+owner="$(jqs --arg u "testbed-base#$first" '[.obligations[] | select(.unit == $u)][0].agent')"
+runner() {
+  in_guild docker compose exec -T dispatcher curl -fsS -X POST \
+    -H "Authorization: Bearer $(tr -d '[:space:]' < "$state/secrets/runner-keys/$owner")" \
+    -H 'Content-Type: application/json' -d "${2:-"{}"}" "http://127.0.0.1:8080$1"
+}
+claimed=""
+deadline=$(( $(date +%s) + 300 ))
+until [ -n "$claimed" ] || [ "$(date +%s)" -ge "$deadline" ]; do
+  claimed="$(runner /claim)" || claimed=""
+  [ -n "$claimed" ] || sleep 5
+done
+if [ -z "$claimed" ]; then
+  fail "$owner never claimed testbed-base#$first"
+else
+  runner "/runs/$(jq -r .run <<<"$claimed")/end" '{"outcome": "completed", "turns": 1, "cost": 0, "denied": []}' >/dev/null
+  budget="$(jqs '[.notices[] | select(.kind == "budget")] | length')"
+  [ "$budget" = 0 ] && pass "a claim counts none of the reference's runs against the budget" \
+    || fail "the reference's runs raised $budget budget notice(s): $(jqs '.notices')"
+fi
 second="$(request testbed-app "Filed under the guild")"
 until_true 120 owes "testbed-app#$second" && pass "resumed, it owes testbed-app#$second" || fail "it never evaluated testbed-app#$second"
 
@@ -176,6 +211,8 @@ out="$(guild scripts/switch-back.sh 2>&1)" && pass "with them edited out, it lis
 touch "$state/control/draining"
 until_true 300 sh -c "curl -fsS http://127.0.0.1:3319/status | jq -e .drained" && pass "it drains" || fail "it never drained"
 in_guild docker compose --profile tools --profile build down --remove-orphans >/dev/null
+foreign
+guild scripts/switch-back.sh --hand-back >/dev/null && pass "it hands the ledger back" || fail "switch-back.sh --hand-back failed"
 
 echo "== The reference again"
 refkit scripts/up.sh >/dev/null

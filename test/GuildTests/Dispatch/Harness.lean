@@ -80,7 +80,7 @@ def T.new (cfg : Config := config) (timings : Timings := { settle := 600 }) : IO
       later := fun _ _ => pure () }
   let env := env.forgetWrites
   let t : T := { world, env, control := dir / "control" }
-  for k in ["rules-seeded", "obligations-started"] do (kvSet k (toString (← env.now))).run env
+  for k in ["rules-seeded", "obligations-started", "first-started"] do (kvSet k (toString (← env.now))).run env
   return t
 
 def T.run {α} (t : T) (k : D α) : IO α := k.run t.env

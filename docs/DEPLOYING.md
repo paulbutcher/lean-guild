@@ -42,7 +42,7 @@ A project builds a kit executable from its configuration and text (`def main := 
 
 ## Switching back to the reference
 
-- Drain the guild, and while it is still up run `scripts/switch-back.sh`: it lists each open item the reference would find blocked on more than the guild does, since the reference reads every `Blocked-by:` line where the guild reads the newest comment's. Edit the lines it names out, run it again until it lists nothing, then stop the guild and start the reference.
+- Drain the guild, and while it is still up run `scripts/switch-back.sh`: it lists each open item the reference would find blocked on more than the guild does, since the reference reads every `Blocked-by:` line where the guild reads the newest comment's. Edit the lines it names out, run it again until it lists nothing, then stop the guild, run `scripts/switch-back.sh --hand-back` to give the ledger to the reference's dispatcher, which runs as uid 1000 whatever the host's is, and start the reference.
 
 ## Scripts
 

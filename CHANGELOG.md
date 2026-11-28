@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.11.2
+
+- The guild's dispatcher takes ownership of the ledger before it starts, so a switch from the reference works on a host whose uid isn't 1000.
+- `scripts/switch-back.sh --hand-back` gives the ledger back to the reference's dispatcher once the guild is stopped.
+- A unit's run budget counts no runs from before the guild first started on the ledger, so a switch from the reference raises no false alarms.
+
 ## v0.11.1
 
 - A section at the end of a block leaves no blank line when it is off, so the Lasm tools list without the macOS runner is one list again.

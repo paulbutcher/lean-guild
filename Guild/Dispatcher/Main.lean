@@ -72,6 +72,7 @@ def serve : IO UInt32 := do
       later := fun delay act => discard <| IO.asTask do IO.sleep (delay * 1000).toUInt32; act,
       started }
   let e := e.forgetWrites
+  discard <| firstStarted.run e
   -- Until the first check, CI may be running anywhere.
   for r in e.repos do (ciMayRun r).run e
   let keys : Keys := { webhookSecret := secrets / "webhook-secret", adminKey := e.adminKeyFile }

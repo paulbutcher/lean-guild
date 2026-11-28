@@ -205,11 +205,22 @@ def sync (unit : String) (owes : List Owe) : D Unit := do
     if r.int "escalated" != 0 then unstall r
   for i in new do advance (fun _ => pure ()) i (fresh := true)
 
+/-- When a dispatcher first started on this ledger, recorded once: until the human first marks a
+unit's budget notice seen, its count starts there, since a ledger the reference kept has runs from
+before any notice could be seen. -/
+def firstStarted : D Float := do
+  if let some t := (← kvGet "first-started").bind parseFloat? then return t
+  let t ← now
+  kvSet "first-started" (toString t)
+  return t
+
 /-- The run budget: once a unit's agent runs since the human last marked its notice seen reach the
 budget, the human gets one notice. Counted from the ledger, whatever the states say. -/
 def checkBudget (unit : String) : D Unit := do
   let e ← read
-  let seen ← kvFloat s!"budget-seen:{unit}"
+  let seen ← match (← kvGet s!"budget-seen:{unit}").bind parseFloat? with
+    | some t => pure t
+    | none => firstStarted
   let rows ← q "SELECT COUNT(DISTINCT t.run_id) AS n FROM triggers t JOIN runs r ON r.id = t.run_id
     WHERE t.key LIKE ? AND r.claimed > ?" [s!"owe:{unit}:%", seen]
   let runs := (rows[0]?.map (·.nat "n")).getD 0

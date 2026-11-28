@@ -203,7 +203,9 @@ services:
     memswap_limit: ${DISPATCHER_MEMORY:-2g}
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     networks: [agents, forge-web]
-    depends_on: [forgejo]
+    depends_on:
+      forgejo: { condition: service_started }
+      state-init: { condition: service_completed_successfully }
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     environment:
@@ -231,6 +233,15 @@ services:
       - ${STATE_DIR:-.}/secrets/runner-keys:/run/secrets/runner-keys:ro
       - ${STATE_DIR:-.}/control:/control:ro
       - ${KIT_CONFIG:?}/config.json:/etc/guild/config.json:ro
+      - dispatcher-state:/state
+
+  # The ledger, owned by the dispatcher's user before it starts. The reference's dispatcher runs as
+  # uid 1000 whatever the host's is, so after a switch its files are not this dispatcher's.
+  state-init:
+    image: alpine:3.24
+    network_mode: none
+    entrypoint: ["chown", "-R", "${HOST_UID:-1000}:${HOST_GID:-1000}", "/state"]
+    volumes:
       - dispatcher-state:/state
 
   # The human's web UI, at 127.0.0.1:UI_PORT on the host. It is on no network an agent is on, and

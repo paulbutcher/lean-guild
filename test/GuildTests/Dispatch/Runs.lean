@@ -490,6 +490,27 @@ def additions : List (String × (T → Check)) := [
     t.wakeDue
     cycle
     same ((← t.io (q "SELECT kind FROM notices WHERE kind='budget'")).size) 1 "seen: the count starts again"),
+  ("the run budget counts no run from before the dispatcher first started on the ledger", fun _ => do
+    let t ← T.new { config with bounds := { config.bounds with runBudget := 2 } }
+    t.issue core 1 "scale" ["request", "new"]
+    -- A switched ledger: the reference's runs on the unit, more than the budget, none ever noticed.
+    for i in [1:6] do
+      let r ← t.io (q "INSERT INTO runs (agent, claimed, ended, outcome) VALUES ('core', ?1, ?1, 'completed') RETURNING id" [epoch + ((← t.now) - 86400 + i).toFloat])
+      let some id := r[0]?.bind (·.nat? "id") | throw "no run"
+      t.io (exec "INSERT INTO triggers (agent, key, description, created, run_id) VALUES ('core', ?, '', 0, ?)"
+        [s!"owe:{core}#1:{i}:1", id])
+    let cycle : Check := do
+      t.evaluate core 1
+      t.pass 61
+      let some c ← t.io (claim "core") | throw "no claim"
+      t.pass 60
+      discard <| t.io (endRun "core" c.run (report "completed" (some 5) (some 0.1)))
+      t.pass 1000
+      t.wakeDue
+    cycle
+    same ((← t.io (q "SELECT kind FROM notices WHERE kind='budget'")).size) 0 "the reference's runs aren't counted"
+    cycle
+    same ((← t.io (q "SELECT kind FROM notices WHERE kind='budget'")).size) 1 "a budget's worth after the start is"),
   ("CI that fails again after its re-runs is the human's", fun t => do
     t.pull core 7 "core" (ci := .failure)
     let part (attempt : Nat) : Fake.RunPart :=
