@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.12.0
+
+- The kit raises no operating-system or browser notification: anything it tells the human is a notice in the web UI, and the tab's title counts the unseen ones.
+- Backups report to the kit: the kit page shows the last one, and a failed backup or a day without one is a notice.
+- The web UI reads at a glance: tables, coloured state badges, relative times, the kit page leading with what needs the human, and a dark theme.
+
 ## v0.11.2
 
 - The guild's dispatcher takes ownership of the ledger before it starts, so a switch from the reference works on a host whose uid isn't 1000.

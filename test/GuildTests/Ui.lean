@@ -42,32 +42,43 @@ def statusJson (paused : Bool) : Json := Json.mkObj [
 
 /-! ## Views -/
 
+/-- The time the pages are drawn at. -/
+def now : Float := Guild.Dispatcher.Time.when "2026-11-25T12:00:00Z"
+
 def viewCases : List (String × Bool) :=
   let st := Status.ofJson (statusJson false)
   let paused := Status.ofJson (statusJson true)
   [("a running kit offers pause and drain, and a paused one only resume",
-     has (text (kitView site st)) links.pause && !has (text (kitView site st)) links.resume &&
-     has (text (kitView site paused)) links.resume && !has (text (kitView site paused)) links.pause),
+     has (text (kitView site now st)) links.pause && !has (text (kitView site now st)) links.resume &&
+     has (text (kitView site now paused)) links.resume && !has (text (kitView site now paused)) links.pause),
    ("what waits on the human links into the forge",
-     has (text (kitView site st)) ((site.itemUrl "lib#4").getD "?")),
+     has (text (kitView site now st)) ((site.itemUrl "lib#4").getD "?")),
    ("only units someone holds are work in progress",
-     let none_ := { st with waitingOnYou := [] }
-     has (text (kitView site none_)) "lib#5" && !has (text (kitView site none_)) "lib#4"),
-   ("an agent's run under way can be stopped", has (text (agentsView st)) (links.stopRun 7)),
+     let none_ := { st with waitingOnYou := [], notices := [] }
+     has (text (kitView site now none_)) "lib#5" && !has (text (kitView site now none_)) "lib#4"),
+   ("an agent's run under way can be stopped", has (text (agentsView now st)) (links.stopRun 7)),
    ("a stopped agent is offered start, a running one stop",
-     has (text (agentsView st)) (links.stopAgent "base") &&
-     has (text (agentsView { st with agents := st.agents.map ({ · with state := "stopped" }) })) (links.startAgent "base")),
+     has (text (agentsView now st)) (links.stopAgent "base") &&
+     has (text (agentsView now { st with agents := st.agents.map ({ · with state := "stopped" }) })) (links.startAgent "base")),
    ("an unseen notice can be marked seen, a seen one not",
-     has (text (noticesView site st)) (links.seen 3) &&
-     !has (text (noticesView site { st with notices := st.notices.map ({ · with seen := some "t" }) })) (links.seen 3)),
+     has (text (noticesView site now st)) (links.seen 3) &&
+     !has (text (noticesView site now { st with notices := st.notices.map ({ · with seen := some "t" }) })) (links.seen 3)),
    ("the activity filter keeps only entries that mention it",
      let es := [{ at_ := "1", who := "base", text := "queued: x" }, { at_ := "2", who := "app", text := "run 4 started" }]
-     has (text (activityView "BASE" es)) "queued: x" && !has (text (activityView "BASE" es)) "run 4 started"),
+     has (text (activityView now "BASE" es)) "queued: x" && !has (text (activityView now "BASE" es)) "run 4 started"),
+   ("times read relative to now, before and after it",
+     relative now (now - 720) == "12 min ago" && relative now (now + 3 * 3600) == "in 3 h" &&
+     relative now (now - 10) == "just now" && relative now (now - 2 * 86400 - 4 * 3600) == "2 d 4 h ago"),
+   ("a run's duration stands for its start and end, and runs on while it is under way",
+     took now (some "2026-11-25T10:00:00Z") (some "2026-11-25T11:05:00Z") == "1 h 5 min" &&
+     took now (some "2026-11-25T11:59:00Z") none == "1 min so far"),
+   ("each time on a page carries the time itself for its tooltip",
+     has (text (kitView site now st)) "2026-11-25 10:00:00 UTC"),
    ("the kit page shows a backup's failure only when it is newer than the last success",
      let at_ (ok failed : String) := { st with backups :=
        { okAt := some ok, folder := some "/backups/x", failedAt := some failed, log := some "/state/backup.log" } }
-     has (text (kitView site (at_ "2026-11-27T03:30:00Z" "2026-11-28T03:30:00Z"))) "/state/backup.log" &&
-     !has (text (kitView site (at_ "2026-11-28T03:30:00Z" "2026-11-27T03:30:00Z"))) "/state/backup.log"),
+     has (text (kitView site now (at_ "2026-11-27T03:30:00Z" "2026-11-28T03:30:00Z"))) "/state/backup.log" &&
+     !has (text (kitView site now (at_ "2026-11-28T03:30:00Z" "2026-11-27T03:30:00Z"))) "/state/backup.log"),
    ("the layout carries the anti-forgery token for HTMX",
      has (layout .kit (some "tok") 0 []) "X-CSRF-Token&quot;: &quot;tok")]
 

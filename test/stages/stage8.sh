@@ -170,7 +170,8 @@ echo "== Events, while paused"
 req="$(request testbed-base "A request from the human")"
 until_true 60 sh -c "curl -sS -b '$jar' -H 'Accept: application/json' '$site/agents' | jq -e '.agents.base.pending[] | select(.trigger | test(\"testbed-base#$req \\\\(untriaged\\\\)\"))'" \
   && pass "base has its request to triage" || fail "base has no work for testbed-base#$req: $(pending base)"
-pending coordinator | grep -q "request filed: testbed-base#$req" && pass "the coordinator is told it was filed" \
+told() { pending coordinator | grep -q "request filed: testbed-base#$req"; }
+until_true 60 told && pass "the coordinator is told it was filed" \
   || fail "the coordinator wasn't told: $(pending coordinator)"
 nh="$(as base POST /repos/testorg/testbed-base/issues "$(jq -nc '{title: "Needs the human", body: "(no reply needed)\n\n## Question\n\nA test.\n\n## Options\n\nNone.\n\n## Recommendation\n\nClose it.\n\n## If you say go ahead\n\nNothing.\n\n## Blocked on this\n\nNothing."}')" | jq -r .number)"
 human POST "/repos/testorg/testbed-base/issues/$nh/labels" '{"labels": ["needs-human"]}' >/dev/null

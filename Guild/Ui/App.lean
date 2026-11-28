@@ -86,37 +86,38 @@ def param (req : Request Body.Stream) (name : String) : Option String :=
 /-- A page drawn from the dispatcher's answer to `path`, or that answer itself for a client that
 asks for JSON. -/
 def page (u : Env) (which : Page) (path : String) (req : Request Body.Stream)
-    (draw : Json → IO (List (Html.Node .flow))) : ContextAsync (Response Body.Any) := do
+    (draw : Json → Float → IO (List (Html.Node .flow))) : ContextAsync (Response Body.Any) := do
   let j ← (u.call .get path : IO Json)
   if wantsJson req then return ← Response.ok.json j.compress
   let status ← if path == "/status" then pure j else (u.call .get "/status" : IO Json)
+  let now ← (Guild.Dispatcher.Time.unixNow : IO Float)
   let unseen := ((Status.ofJson status).notices.filter (·.seen.isNone)).length
   -- What the last action did, shown once, on the page it came back to.
   let report ← (u.report.modifyGet fun r => (r, []) : IO (List String))
   let said : List (Html.Node .flow) := if report.isEmpty then [] else
     [Html.div (report.map fun l => (Html.p [Html.Node.text l] : Html.Node .flow)) { class_ := "report" }]
-  Response.ok.html (layout which (token req) unseen (said ++ (← draw j)))
+  Response.ok.html (layout which (token req) unseen (said ++ (← draw j now)))
 
 def kitPage (u : Env) (req : Request Body.Stream) : ContextAsync (Response Body.Any) :=
-  page u .kit "/status" req fun j => do
+  page u .kit "/status" req fun j now => do
     let st := Status.ofJson j
     tidyStops u.brakes.control (st.runs.filter (·.ended.isSome) |>.map (·.id))
-    return kitView u.site st
+    return kitView u.site now st
 
 def agentsPage (u : Env) (req : Request Body.Stream) : ContextAsync (Response Body.Any) :=
-  page u .agents "/status" req fun j => return agentsView (Status.ofJson j)
+  page u .agents "/status" req fun j now => return agentsView now (Status.ofJson j)
 
 def noticesPage (u : Env) (req : Request Body.Stream) : ContextAsync (Response Body.Any) :=
-  page u .notices "/status" req fun j => return noticesView u.site (Status.ofJson j)
+  page u .notices "/status" req fun j now => return noticesView u.site now (Status.ofJson j)
 
 def activityPage (u : Env) (req : Request Body.Stream) : ContextAsync (Response Body.Any) :=
   let filter := (param req "q").getD ""
-  page u .activity "/activity?limit=400" req fun j => return activityView filter (events j)
+  page u .activity "/activity?limit=400" req fun j now => return activityView now filter (events j)
 
 def reviewsPage (u : Env) (req : Request Body.Stream) : ContextAsync (Response Body.Any) :=
   let days := ((param req "days").bind String.toNat?).getD 7
   let changes := (param req "changes").isSome
-  page u .reviews s!"/reviews?days={days}" req fun j => return reviewsView u.site changes (Reviews.ofJson j)
+  page u .reviews s!"/reviews?days={days}" req fun j now => return reviewsView u.site now changes (Reviews.ofJson j)
 
 /-- Runs an action, keeps what it says for the kit page, and draws `back` again. -/
 def act (u : Env) (req : Request Body.Stream) (back : String) (k : IO (List String)) :
